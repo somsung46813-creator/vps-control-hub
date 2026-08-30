@@ -219,6 +219,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           onMouseMove={move}
           onClick={() => {
             if (done && !grabbed) toggleGrab();
+            else if (mouseLive) setSelected(null);
           }}
           className={`relative aspect-video bg-[#0a141f] overflow-hidden font-mono select-none ${
             mouseLive ? "cursor-none" : grabbed ? "cursor-not-allowed" : "cursor-pointer"
