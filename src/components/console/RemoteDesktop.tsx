@@ -819,7 +819,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               {/* firefox browser window */}
               {foxWin && ws("firefox") !== "min" && (
                 <div
-                  style={winStyle("firefox", "46%")}
+                  style={winStyle("firefox", httpView ? "64%" : "46%")}
                   onMouseDown={() => setTopWin("firefox")}
                   onMouseEnter={() => hoverFocus("firefox")}
                   className={`absolute rounded-md bg-[#101d2b]/95 shadow-2xl text-[10px] ${
