@@ -91,6 +91,8 @@ function Console() {
   });
   const [installedPackages, setInstalledPackages] = useState<string[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
+  /** Host VM ids where lightdm runs on the host OS (display manager beneath the guests). */
+  const [hostLightdm, setHostLightdm] = useState<string[]>([]);
 
 
 
