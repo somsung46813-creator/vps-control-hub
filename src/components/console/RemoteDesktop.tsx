@@ -103,7 +103,15 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   } | null>(null);
   const [overTrash, setOverTrash] = useState(false);
   const [overFox, setOverFox] = useState(false);
-  const [foxTab, setFoxTab] = useState("https://start.mozilla.org");
+  const [foxTab, setFoxTab] = useState(FOX_HOME);
+  const [foxHist, setFoxHist] = useState<string[]>([FOX_HOME]);
+  const [foxIdx, setFoxIdx] = useState(0);
+  const [foxUrlInput, setFoxUrlInput] = useState(FOX_HOME);
+  const [foxLoading, setFoxLoading] = useState(false);
+  const [foxResp, setFoxResp] = useState<HttpExchange | null>(null);
+  const [httpView, setHttpView] = useState(false);
+  const [foxReload, setFoxReload] = useState(0);
+
 
   const [trashed, setTrashed] = useState<string[]>([]);
   const dragMovedRef = useRef(false);
