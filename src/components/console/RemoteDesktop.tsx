@@ -34,10 +34,15 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [devices, setDevices] = useState<IoDevice[]>(() => ioDevices(guest));
   const [typed, setTyped] = useState("");
   const [busLog, setBusLog] = useState<string[]>([]);
+  const [grabbed, setGrabbed] = useState(true);
   const frameRef = useRef<HTMLDivElement | null>(null);
 
   const mouse = devices.find((d) => d.cls === "mouse")!;
   const keyboard = devices.find((d) => d.cls === "keyboard")!;
+
+  // input only reaches the guest when the device is attached AND the viewer holds the grab
+  const mouseLive = mouse.attached && grabbed;
+  const keyboardLive = keyboard.attached && grabbed;
 
   const emit = useCallback(
     (line: string) => {
