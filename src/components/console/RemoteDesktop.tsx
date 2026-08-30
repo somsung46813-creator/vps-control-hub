@@ -113,6 +113,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [firefoxInstalled, setFirefoxInstalled] = useState(false);
   const [installingFox, setInstallingFox] = useState(false);
   const [rdpGen, setRdpGen] = useState(0); // bumped when the RDP stack is reinstalled
+  // session health / auto-reconnect
+  const [autoReconnect, setAutoReconnect] = useState(true);
+  const [retries, setRetries] = useState(0);
+  const [rtt, setRtt] = useState(18);
+  const [linkState, setLinkState] = useState<"up" | "stalled" | "reconnecting">("up");
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
   );
