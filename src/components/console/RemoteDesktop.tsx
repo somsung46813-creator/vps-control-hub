@@ -987,8 +987,16 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                         : "hover:bg-[#2e4258]/60"
                     }`}
                   >
-                    <span className="h-7 w-7 rounded-md bg-[#2e4258] ring-1 ring-[#3d5a7a] flex items-center justify-center text-[11px]">
+                    <span className="relative h-7 w-7 rounded-md bg-[#2e4258] ring-1 ring-[#3d5a7a] flex items-center justify-center text-[11px]">
                       {icon.glyph}
+                      {icon.label === "Chrome" && chromeShortcut !== "exec" && (
+                        <span
+                          title="not executable — run: chmod +x ~/Desktop/google-chrome.desktop"
+                          className="absolute -right-1 -bottom-1 text-[8px]"
+                        >
+                          🔒
+                        </span>
+                      )}
                     </span>
                     {icon.label}
                   </button>
