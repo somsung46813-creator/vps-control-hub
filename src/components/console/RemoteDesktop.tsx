@@ -225,17 +225,62 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="text-[#8fa8c0]">{guest.name} · ubuntu</span>
                 <span className="text-mint">●</span>
               </div>
-              {/* desktop icons */}
-              <div className="absolute top-12 left-4 flex flex-col gap-5 text-center text-[9px] text-[#c8d6e5]">
-                {["Home", "File System", "Trash"].map((label) => (
-                  <div key={label} className="flex flex-col items-center gap-1">
-                    <div className="h-7 w-7 rounded-md bg-[#2e4258] ring-1 ring-[#3d5a7a] flex items-center justify-center text-[11px]">
-                      {label === "Trash" ? "🗑" : "📁"}
-                    </div>
-                    {label}
-                  </div>
+              {/* desktop icons — clickable while the pointer is grabbed */}
+              <div className="absolute top-12 left-4 z-20 flex flex-col gap-4 text-center text-[9px] text-[#c8d6e5]">
+                {DESKTOP_ICONS.map((icon) => (
+                  <button
+                    key={icon.label}
+                    type="button"
+                    disabled={!mouseLive}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelected(icon.label);
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      openIcon(icon.label);
+                    }}
+                    className={`flex flex-col items-center gap-1 rounded px-1.5 py-1 transition ${
+                      mouseLive ? "cursor-none" : "cursor-default"
+                    } ${selected === icon.label ? "bg-[#3d5a7a]/60 ring-1 ring-[#7ec8ff]" : "hover:bg-[#2e4258]/60"}`}
+                  >
+                    <span className="h-7 w-7 rounded-md bg-[#2e4258] ring-1 ring-[#3d5a7a] flex items-center justify-center text-[11px]">
+                      {icon.glyph}
+                    </span>
+                    {icon.label}
+                  </button>
                 ))}
               </div>
+
+              {/* thunar window opened from a desktop icon */}
+              {openWin && (
+                <div className="absolute right-[6%] top-[18%] z-30 w-[38%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px]">
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5]">
+                    <button
+                      type="button"
+                      aria-label="Close window"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenWin(null);
+                        emit(`thunar: window closed · ${openWin}`);
+                      }}
+                      className="h-2 w-2 rounded-full bg-destructive/80 hover:bg-destructive"
+                    />
+                    <span className="h-2 w-2 rounded-full bg-amber/70" />
+                    <span className="h-2 w-2 rounded-full bg-mint/70" />
+                    <span className="ml-1.5 truncate">
+                      {openWin} — Thunar {DESKTOP_ICONS.find((i) => i.label === openWin)?.path}
+                    </span>
+                  </div>
+                  <div className="p-2 leading-5 text-[#c8d6e5]">
+                    {(DESKTOP_ICONS.find((i) => i.label === openWin)?.entries ?? []).map((f) => (
+                      <p key={f} className="truncate">
+                        <span className="text-[#7ec8ff]">{f.endsWith("/") ? "📁" : "📄"}</span> {f}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* terminal window */}
               <div className="absolute left-[26%] top-[24%] w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px]">
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5]">
