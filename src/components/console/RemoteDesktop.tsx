@@ -552,7 +552,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_18rem]">
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto grid grid-cols-1 ${
+            busOpen ? "md:grid-cols-[1fr_16rem] xl:grid-cols-[1fr_18rem]" : "md:grid-cols-[1fr_2.25rem]"
+          }`}
+        >
         {/* display */}
         <div
           ref={frameRef}
