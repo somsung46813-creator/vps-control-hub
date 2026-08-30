@@ -314,6 +314,10 @@ function Console() {
     const meta = parseDeb(file.name);
     push(makeLog("net", `dpkg -i ${file.path} · ${meta.pkg} ${meta.version} (${meta.arch})`));
     setInstalledPackages((prev) => (prev.includes(file.id) ? prev : [...prev, file.id]));
+    if (/^lightdm/i.test(meta.pkg)) {
+      installHostLightdm(host.id, `dpkg -i ${file.path}`);
+      return;
+    }
     setTimeout(() => {
       if (isHypervisorPackage(file.name)) {
         setHypervisor((prev) => ({
@@ -364,6 +368,11 @@ function Console() {
             : v,
         ),
       );
+      if (hostLightdm.includes(guest.hostId)) {
+        setTimeout(() => {
+          push(makeLog("ok", `lightdm (host): seat0 greeter up · launching session for ${guest.name} on top of host display manager`));
+        }, 900);
+      }
       if (guest.autostart) {
         const hostIp = vms.find((v) => v.id === guest.hostId)?.ip ?? "0.0.0.0";
         setTimeout(() => {
@@ -488,6 +497,8 @@ function Console() {
             <GuestManager
               vm={selected}
               hypervisor={hypervisor}
+              hostLightdm={hostLightdm.includes(selected.id)}
+              onInstallLightdm={() => installHostLightdm(selected.id, "apt install lightdm")}
               guests={hostGuests}
               onCreate={createGuest}
               onPower={powerGuest}
