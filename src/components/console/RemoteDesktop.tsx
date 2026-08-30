@@ -1433,6 +1433,30 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     {openWin === "Trash" && trashed.length === 0 && (
                       <p className="text-[#8fa8c0]">Trash is empty — drag an icon onto it</p>
                     )}
+                    {openWin !== "Trash" &&
+                      (FM_TREE[fmPath] ?? []).filter((f) => !fmTrash.includes(f)).length === 0 && (
+                        <p className="text-[#8fa8c0]">Folder is empty</p>
+                      )}
+
+                    {/* in-place text viewer for opened files */}
+                    {fmView && (
+                      <div className="mt-2 rounded-md bg-[#0b1520] ring-1 ring-[#3d5a7a] overflow-hidden">
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-[#16273a] border-b border-[#3d5a7a]/60 text-[9px]">
+                          <span className="truncate text-[#7ec8ff]">{fmView.path}</span>
+                          <button
+                            type="button"
+                            aria-label="Close file viewer"
+                            onClick={() => setFmView(null)}
+                            className="ml-auto px-1 rounded hover:bg-[#2e4258] text-[#8fa8c0]"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <pre className="max-h-32 overflow-auto p-2 text-[9px] leading-4 text-mint/90 whitespace-pre-wrap">
+                          {fmView.text}
+                        </pre>
+                      </div>
+                    )}
 
                     {fmMenu && (
                       <div
