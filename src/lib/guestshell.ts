@@ -224,13 +224,13 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
         ];
       }
       if (sub === "install") {
-        const pkg = args.filter((a) => !a.startsWith("-"))[0];
+        const pkg = args.slice(1).filter((a) => !a.startsWith("-"))[0];
         if (!pkg) return ["E: no package specified"];
         if (!sudo) return [`E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)`, "E: Unable to acquire the dpkg frontend lock — are you root? Use: sudo apt install " + pkg];
         return [`[sudo] password for ${conn.user}: ********`, ...aptInstall(pkg, guest)];
       }
       if (sub === "remove") {
-        const pkg = args.filter((a) => !a.startsWith("-"))[0];
+        const pkg = args.slice(1).filter((a) => !a.startsWith("-"))[0];
         if (!pkg) return ["E: no package specified"];
         if (!sudo) return ["E: Permission denied — are you root? Use sudo."];
         if (!installed(guest).has(pkg)) return [`Package '${pkg}' is not installed, so not removed`];
