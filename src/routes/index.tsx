@@ -179,6 +179,76 @@ function Console() {
     setTimeout(() => push(makeLog("ok", `${cmd.split(" ")[0]} completed · exit 0`)), 900);
   }
 
+  const vmFiles = useMemo(
+    () => files.filter((f) => f.vmId === selected.id),
+    [files, selected.id],
+  );
+
+  function uploadFiles(list: FileList) {
+    const time = stamp();
+    const added = Array.from(list).map((f) => makeHostFile(f, selected.id, time));
+    setFiles((prev) => [...added, ...prev]);
+    added.forEach((f) =>
+      push(
+        makeLog(
+          "net",
+          `PUT ${f.path} · ${formatBytes(f.size)} · mode ${permString(f.perms)}`,
+        ),
+      ),
+    );
+  }
+
+  function downloadHostFile(file: HostFile) {
+    if (!file.perms.r) return;
+    downloadFile(file);
+    push(makeLog("ok", `GET ${file.path} · ${formatBytes(file.size)} streamed`));
+  }
+
+  function deleteHostFile(file: HostFile) {
+    if (!file.perms.w) return;
+    dropBlob(file.id);
+    setFiles((prev) => prev.filter((f) => f.id !== file.id));
+    push(makeLog("warn", `unlink ${file.path}`));
+  }
+
+  function togglePerm(file: HostFile, bit: keyof Perms) {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === file.id ? { ...f, perms: { ...f.perms, [bit]: !f.perms[bit] } } : f)),
+    );
+    const next = { ...file.perms, [bit]: !file.perms[bit] };
+    push(makeLog("net", `chmod ${permString(next)} ${file.path}`));
+  }
+
+  function runHostFile(file: HostFile) {
+    if (!file.perms.x) {
+      push(makeLog("err", `permission denied · ${file.path} not executable`));
+      return;
+    }
+    const host = vms.find((v) => v.id === file.vmId);
+    if (!host) return;
+    if (host.status === "stopped") {
+      push(makeLog("warn", `${host.hostname} stopped · booting before exec`));
+      runAction(host.id, "start");
+    }
+    push(makeLog("net", `exec ${file.path} on ${host.hostname} · pid ${1000 + Math.floor(Math.random() * 8000)}`));
+    setTimeout(() => {
+      setVms((prev) =>
+        prev.map((v) =>
+          v.id === file.vmId
+            ? {
+                ...v,
+                status: v.status === "stopped" ? v.status : "live",
+                cpu: Math.min(96, v.cpu + 14),
+                diskIo: v.diskIo + 30,
+              }
+            : v,
+        ),
+      );
+      push(makeLog("ok", `${file.name} running · instance attached to ${host.hostname}`));
+    }, 1200);
+  }
+
+
   return (
     <div className="min-h-screen bg-void text-ink flex">
       <SideRail
