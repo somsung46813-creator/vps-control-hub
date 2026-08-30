@@ -58,13 +58,15 @@ const DESKTOP_ICONS: Array<{
     entries: ["bin/", "etc/", "home/", "var/", "usr/"],
   },
   { label: "Trash", glyph: "🗑", path: "trash:///", entries: [] },
-  {
-    label: "Firefox",
-    glyph: "🦊",
-    path: "/usr/lib/firefox/firefox",
-    entries: ["firefox", "firefox-bin", "omni.ja", "browser/", "defaults/"],
-  },
 ];
+
+/** Appears on the desktop after Firefox is installed (apt/snap or the one-click installer). */
+const FIREFOX_ICON = {
+  label: "Firefox",
+  glyph: "🦊",
+  path: "/usr/lib/firefox/firefox",
+  entries: ["firefox", "firefox-bin", "omni.ja", "browser/", "defaults/"],
+};
 
 /** Appears on the desktop only after `cp /usr/share/applications/google-chrome.desktop ~/Desktop/`. */
 const CHROME_ICON = {
@@ -108,6 +110,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   /** null = shortcut not copied yet; "noexec" = copied but not chmod +x; "exec" = launchable */
   const [chromeShortcut, setChromeShortcut] = useState<null | "noexec" | "exec">(null);
   const [chromiumInstalled, setChromiumInstalled] = useState(false);
+  const [firefoxInstalled, setFirefoxInstalled] = useState(false);
+  const [installingFox, setInstallingFox] = useState(false);
   const [rdpGen, setRdpGen] = useState(0); // bumped when the RDP stack is reinstalled
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
