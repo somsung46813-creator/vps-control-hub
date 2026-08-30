@@ -605,7 +605,40 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               </button>
             ))}
           </div>
+          {/* cliprdr — clipboard channel */}
+          <div className="px-3 py-2 border-t border-railedge">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px]">📋</span>
+              <span className="text-[10px] text-ink flex-1">Clipboard channel</span>
+              <button
+                type="button"
+                onClick={cycleClipMode}
+                className={`text-[9px] font-mono px-1.5 py-0.5 rounded ring-1 transition ${
+                  clipMode === "disabled"
+                    ? "text-dim ring-railedge hover:text-ink"
+                    : "text-neon ring-neon/40 bg-neon/10 hover:bg-neon/20"
+                }`}
+              >
+                {CLIP_MODES.find((m) => m.id === clipMode)?.label}
+              </button>
+            </div>
+            <p className="text-[9px] font-mono text-dim mt-1 truncate">
+              svc cliprdr · virtual channel 0x03 · CF_UNICODETEXT/UTF8_STRING
+            </p>
+            <p className="text-[9px] font-mono text-dim/70 mt-0.5 truncate">
+              {clipXfer ?? (hostToGuest ? "idle — press Ctrl+V to stream host clipboard" : "host→guest stream off")}
+            </p>
+            <button
+              type="button"
+              onClick={copyFromGuest}
+              disabled={!guestToHost || !(typed || clipGuest)}
+              className="mt-1.5 w-full text-[9px] font-mono px-2 py-1 rounded ring-1 ring-railedge text-ink hover:bg-panel/70 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              copy guest selection → host clipboard
+            </button>
+          </div>
           <div className="px-3 py-2 border-t border-railedge min-h-[3.5rem]">
+
             {busLog.length === 0 ? (
               <p className="text-[9px] font-mono text-dim/60">udev quiet · no bus events</p>
             ) : (
