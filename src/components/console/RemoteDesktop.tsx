@@ -86,6 +86,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     firefox: { x: 20, y: 12 },
   });
   const [topWin, setTopWin] = useState<string>("thunar");
+  const [winState, setWinState] = useState<Record<string, "normal" | "min" | "max">>({
+    thunar: "normal",
+    term: "normal",
+    firefox: "normal",
+  });
   const [focusFollow, setFocusFollow] = useState(true);
   const [termSel, setTermSel] = useState<string | null>(null);
 
