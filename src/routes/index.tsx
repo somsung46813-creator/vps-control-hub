@@ -24,6 +24,7 @@ import {
   browserPackage,
   guestKey,
   guestSignature,
+  hostSteps,
   planForGuest,
   interpreterSource,
   planWithSignature,
@@ -277,8 +278,8 @@ function Console() {
     }
 
     if (spec.hostDisplayStack) {
-      const lines = hostSteps({ browsers: spec.browsers } as ProvisionPlan);
-      lines.forEach((line, i) =>
+      const lines: string[] = hostSteps({ browsers: spec.browsers } as ProvisionPlan);
+      lines.forEach((line: string, i: number) =>
         setTimeout(() => {
           push(makeLog("net", line));
           executeStep(line, "", vm.id);
@@ -546,9 +547,9 @@ function Console() {
     }
   }
 
-  function runPlanSteps(plan: ProvisionPlan, guestId: string, diskGb?: number) {
+  function runPlanSteps(plan: ProvisionPlan, guestId: string, diskGb?: number, hostIdOverride?: string) {
     const guest = guests.find((g) => g.id === guestId);
-    const hostId = guest?.hostId ?? selected.id;
+    const hostId = hostIdOverride ?? guest?.hostId ?? selected.id;
     plan.steps.forEach((line, i) => {
       setTimeout(() => {
         push(makeLog("net", line));
@@ -799,7 +800,12 @@ function Console() {
         </section>
       </main>
 
-      <DeployDrawer open={deployOpen} onClose={() => setDeployOpen(false)} onDeploy={deploy} />
+      <DeployDrawer
+        open={deployOpen}
+        onClose={() => setDeployOpen(false)}
+        onDeploy={deploy}
+        hypervisorDeb={hypervisorDeb?.name ?? null}
+      />
       {sessionGuest && (
         <GuestConsole
           guest={sessionGuest}
