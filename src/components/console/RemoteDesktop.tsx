@@ -60,6 +60,59 @@ const DESKTOP_ICONS: Array<{
   { label: "Trash", glyph: "🗑", path: "trash:///", entries: [] },
 ];
 
+/** Virtual guest filesystem: children of each directory path Thunar can navigate into. */
+const FM_TREE: Record<string, string[]> = {
+  "/": ["bin/", "etc/", "home/", "usr/", "var/"],
+  "/bin": ["bash", "ls", "cp", "mv", "chmod", "systemctl"],
+  "/etc": ["lightdm/", "xfce4/", "fstab", "hostname", "apt/"],
+  "/etc/lightdm": ["lightdm.conf", "users.conf"],
+  "/etc/xfce4": ["xfce4-panel.xml", "xfwm4.xml"],
+  "/etc/apt": ["sources.list", "sources.list.d/"],
+  "/home": ["ubuntu/"],
+  "/home/ubuntu": ["Desktop/", "Documents/", "Downloads/", ".xinitrc", ".bashrc"],
+  "/home/ubuntu/Desktop": ["google-chrome.desktop"],
+  "/home/ubuntu/Documents": ["notes.txt", "readme.md"],
+  "/home/ubuntu/Downloads": ["firefox-latest.tar.bz2", "setup.deb"],
+  "/usr": ["bin/", "share/", "lib/"],
+  "/usr/bin": ["xfce4-session", "startxfce4", "xrdp", "lightdm", "chromium-browser"],
+  "/usr/share": ["applications/", "icons/"],
+  "/usr/share/applications": ["firefox.desktop", "google-chrome.desktop", "thunar.desktop"],
+  "/usr/lib": ["firefox/", "xorg/"],
+  "/var": ["log/", "cache/"],
+  "/var/log": ["syslog", "Xorg.0.log", "lightdm/"],
+  "/var/log/lightdm": ["lightdm.log", "x-0.log"],
+};
+
+/** Text contents served when a file is opened in the Thunar viewer. */
+const FM_FILE_TEXT: Record<string, string> = {
+  "/home/ubuntu/.bashrc":
+    "# ~/.bashrc\nexport PS1='\\u@\\h:\\w\\$ '\nalias ll='ls -alF'\nexport DISPLAY=:0",
+  "/home/ubuntu/.xinitrc": "#!/bin/sh\nexec startxfce4",
+  "/home/ubuntu/Documents/notes.txt":
+    "vectorad guest notes\n- lightdm greeter on tty7\n- xrdp on 3389, VRDE 3390\n- cliprdr channel synced",
+  "/home/ubuntu/Documents/readme.md": "# vectorad\nXFCE4 desktop on Ubuntu 24.04 guest.",
+  "/etc/hostname": "vectorad",
+  "/etc/fstab": "/dev/sda1 / ext4 defaults 0 1\n/dev/sr0 /media/cdrom udf,iso9660 ro 0 0",
+  "/etc/lightdm/lightdm.conf": "[Seat:*]\ngreeter-session=lightdm-gtk-greeter\nautologin-user=ubuntu",
+  "/usr/share/applications/firefox.desktop":
+    "[Desktop Entry]\nName=Firefox\nExec=firefox %u\nType=Application\nIcon=firefox",
+  "/usr/share/applications/google-chrome.desktop":
+    "[Desktop Entry]\nName=Google Chrome\nExec=/opt/google/chrome/chrome %U\nType=Application",
+  "/usr/share/applications/thunar.desktop":
+    "[Desktop Entry]\nName=Thunar File Manager\nExec=thunar %U\nType=Application",
+};
+
+function fmJoin(dir: string, entry: string): string {
+  const clean = entry.replace(/\/$/, "");
+  return dir === "/" ? `/${clean}` : `${dir}/${clean}`;
+}
+
+function fmParent(dir: string): string {
+  if (dir === "/") return "/";
+  const up = dir.slice(0, dir.lastIndexOf("/"));
+  return up === "" ? "/" : up;
+}
+
 /** Appears on the desktop after Firefox is installed (apt/snap or the one-click installer). */
 const FIREFOX_ICON = {
   label: "Firefox",
@@ -175,6 +228,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [fmSel, setFmSel] = useState<string | null>(null);
   const [fmTrash, setFmTrash] = useState<string[]>([]);
   const [fmMenu, setFmMenu] = useState<{ x: number; y: number; entry: string } | null>(null);
+  const [fmPath, setFmPath] = useState("/home/ubuntu");
+  const [fmBack, setFmBack] = useState<string[]>([]);
+  const [fmView, setFmView] = useState<{ path: string; text: string } | null>(null);
 
   const dragMovedRef = useRef(false);
   const [busLog, setBusLog] = useState<string[]>([]);
@@ -766,9 +822,53 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       return;
     }
     setOpenWin(label);
+    setFmPath(icon.path === "trash:///" ? "/" : icon.path);
+    setFmBack([]);
+    setFmView(null);
     setWinState((s) => ({ ...s, thunar: s['thunar'] === "max" ? "max" : "normal" }));
     setTopWin("thunar");
     emit(`thunar: open ${icon.path} · pointer click via ${mouse.bdf}`);
+  }
+
+  /** Open a Thunar entry: directories navigate, files open in the text viewer. */
+  function openFmEntry(entry: string) {
+    const isDir = entry.endsWith("/");
+    const target = fmJoin(fmPath, entry);
+    if (isDir) {
+      setFmBack((s) => [...s, fmPath]);
+      setFmPath(target);
+      setFmSel(null);
+      setFmView(null);
+      emit(`thunar: enter directory ${target} · xdg-open dir`);
+      return;
+    }
+    const text =
+      FM_FILE_TEXT[target] ??
+      `# ${target}\n(binary / ${Math.abs(target.length * 137 + 482) % 900 + 96} bytes) — no text handler, shown as hexdump preview\n00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|`;
+    setFmView({ path: target, text });
+    emit(`xdg-open: ${target} · opened in Thunar text view`);
+  }
+
+  function fmGoBack() {
+    setFmBack((s) => {
+      const prev = s[s.length - 1];
+      if (prev === undefined) return s;
+      setFmPath(prev);
+      setFmSel(null);
+      setFmView(null);
+      emit(`thunar: back → ${prev}`);
+      return s.slice(0, -1);
+    });
+  }
+
+  function fmGoUp() {
+    if (fmPath === "/") return;
+    const up = fmParent(fmPath);
+    setFmBack((s) => [...s, fmPath]);
+    setFmPath(up);
+    setFmSel(null);
+    setFmView(null);
+    emit(`thunar: up → ${up} · cd ..`);
   }
 
   function move(e: React.MouseEvent) {
@@ -1255,13 +1355,41 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
                     />
                     <span className="ml-1.5 truncate">
-                      {openWin} — Thunar {DESKTOP_ICONS.find((i) => i.label === openWin)?.path}
+                      {openWin} — Thunar {fmPath}
                     </span>
+                  </div>
+                  {/* location bar */}
+                  <div className="flex items-center gap-1 px-2 py-1 bg-[#16273a] border-b border-[#3d5a7a]/60">
+                    <button
+                      type="button"
+                      aria-label="Back"
+                      disabled={fmBack.length === 0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fmGoBack();
+                      }}
+                      className="px-1 rounded hover:bg-[#2e4258] disabled:opacity-30 text-[#7ec8ff]"
+                    >
+                      ◂
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Up one level"
+                      disabled={fmPath === "/"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fmGoUp();
+                      }}
+                      className="px-1 rounded hover:bg-[#2e4258] disabled:opacity-30 text-[#7ec8ff]"
+                    >
+                      ⬆
+                    </button>
+                    <span className="truncate text-[#7ec8ff]">thunar://{fmPath}</span>
                   </div>
                   <div className="relative p-2 leading-5 text-[#c8d6e5]">
                     {(openWin === "Trash"
                       ? trashed.map((t) => `${t}/`)
-                      : (DESKTOP_ICONS.find((i) => i.label === openWin)?.entries ?? [])
+                      : (FM_TREE[fmPath] ?? DESKTOP_ICONS.find((i) => i.label === openWin)?.entries ?? [])
                     )
                       .filter((f) => !fmTrash.includes(f))
                       .map((f) => (
@@ -1276,11 +1404,12 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                           }}
                           onDoubleClick={(e) => {
                             e.stopPropagation();
-                            emit(
-                              f.endsWith("/")
-                                ? `thunar: enter directory ${f} · xdg-open`
-                                : `xdg-open: ${f} · launching default handler`,
-                            );
+                            setFmMenu(null);
+                            if (openWin === "Trash") {
+                              emit(`trash: inspect ${f} · restore via right-click not available`);
+                              return;
+                            }
+                            openFmEntry(f);
                           }}
                           onContextMenu={(e) => {
                             e.preventDefault();
@@ -1304,6 +1433,30 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     {openWin === "Trash" && trashed.length === 0 && (
                       <p className="text-[#8fa8c0]">Trash is empty — drag an icon onto it</p>
                     )}
+                    {openWin !== "Trash" &&
+                      (FM_TREE[fmPath] ?? []).filter((f) => !fmTrash.includes(f)).length === 0 && (
+                        <p className="text-[#8fa8c0]">Folder is empty</p>
+                      )}
+
+                    {/* in-place text viewer for opened files */}
+                    {fmView && (
+                      <div className="mt-2 rounded-md bg-[#0b1520] ring-1 ring-[#3d5a7a] overflow-hidden">
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-[#16273a] border-b border-[#3d5a7a]/60 text-[9px]">
+                          <span className="truncate text-[#7ec8ff]">{fmView.path}</span>
+                          <button
+                            type="button"
+                            aria-label="Close file viewer"
+                            onClick={() => setFmView(null)}
+                            className="ml-auto px-1 rounded hover:bg-[#2e4258] text-[#8fa8c0]"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <pre className="max-h-32 overflow-auto p-2 text-[9px] leading-4 text-mint/90 whitespace-pre-wrap">
+                          {fmView.text}
+                        </pre>
+                      </div>
+                    )}
 
                     {fmMenu && (
                       <div
@@ -1318,12 +1471,12 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                         <button
                           type="button"
                           onClick={() => {
-                            emit(
-                              fmMenu.entry.endsWith("/")
-                                ? `thunar: open folder ${fmMenu.entry}`
-                                : `xdg-open: ${fmMenu.entry} · default handler`,
-                            );
                             setFmMenu(null);
+                            if (openWin === "Trash") {
+                              emit(`trash: open ${fmMenu.entry} · not supported from trash:///`);
+                              return;
+                            }
+                            openFmEntry(fmMenu.entry);
                           }}
                           className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
                         >
@@ -1369,7 +1522,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                           disabled={!clipGuest}
                           onClick={() => {
                             emit(
-                              `thunar: paste ${clipGuest} → ${DESKTOP_ICONS.find((i) => i.label === openWin)?.path ?? "~"}`,
+                              `thunar: paste ${clipGuest} → ${openWin === "Trash" ? "trash:///" : fmPath}`,
                             );
                             setFmMenu(null);
                           }}
