@@ -9,6 +9,8 @@ export type Guest = {
   diskGb: number;
   status: GuestStatus;
   createdAt: string;
+  /** When true, the guest boots straight into graphical.target (desktop autostart). */
+  autostart: boolean;
 };
 
 export type Hypervisor = {
@@ -61,6 +63,7 @@ export function makeGuest(
     diskGb: template.diskGb,
     status: "installing",
     createdAt: time,
+    autostart: false,
   };
 }
 

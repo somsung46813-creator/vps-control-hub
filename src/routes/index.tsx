@@ -16,6 +16,7 @@ import {
   type Guest,
   type Hypervisor,
 } from "@/lib/guests";
+import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 
 import {
@@ -328,7 +329,30 @@ function Console() {
             : v,
         ),
       );
+      if (guest.autostart) {
+        const hostIp = vms.find((v) => v.id === guest.hostId)?.ip ?? "0.0.0.0";
+        setTimeout(() => {
+          for (const line of autostartBootLines(guest, guestConn(guest, hostIp))) {
+            push(makeLog("ok", `${guest.name} · ${line}`));
+          }
+        }, 1400);
+      }
     }
+  }
+
+  function toggleGuestAutostart(guest: Guest) {
+    const enabling = !guest.autostart;
+    setGuests((prev) =>
+      prev.map((g) => (g.id === guest.id ? { ...g, autostart: enabling } : g)),
+    );
+    push(
+      makeLog(
+        enabling ? "ok" : "warn",
+        `VBoxManage setextradata ${guest.name} GUI/Autostart ${enabling ? "on" : "off"} · systemctl ${
+          enabling ? "set-default graphical.target" : "set-default multi-user.target"
+        }`,
+      ),
+    );
   }
 
   function connectGuest(guest: Guest) {
@@ -426,6 +450,7 @@ function Console() {
               onPower={powerGuest}
               onDelete={deleteGuest}
               onConnect={connectGuest}
+              onToggleAutostart={toggleGuestAutostart}
             />
 
           </div>
