@@ -36,11 +36,18 @@ export const PLANS = [
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 
-function series(base: number, n = 11): number[] {
+// Deterministic so SSR and hydration agree.
+function pseudo(seed: number): number {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function series(base: number, seed = 0, n = 11): number[] {
   return Array.from({ length: n }, (_, i) =>
-    clamp(Math.round(base + Math.sin(i * 0.9) * 12 + (Math.random() - 0.5) * 14)),
+    clamp(Math.round(base + Math.sin(i * 0.9) * 12 + (pseudo(seed * 31 + i + 1) - 0.5) * 14)),
   );
 }
+
 
 export function seedFleet(): Vm[] {
   const spec: Array<[string, string, VmStatus, number, number, number, number, string]> = [
