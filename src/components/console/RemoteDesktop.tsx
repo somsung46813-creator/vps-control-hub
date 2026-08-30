@@ -516,7 +516,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       <div className="w-full max-w-5xl max-h-[96vh] flex flex-col rounded-xl bg-panel ring-1 ring-railedge overflow-hidden shadow-2xl">
 
         {/* title bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-railedge">
+        <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-railedge">
           <div className="flex items-center gap-2 min-w-0">
             <span className="h-2 w-2 rounded-full bg-destructive/70" />
             <span className="h-2 w-2 rounded-full bg-amber/70" />
