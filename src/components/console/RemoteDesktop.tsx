@@ -97,6 +97,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [focusFollow, setFocusFollow] = useState(true);
   const [termSel, setTermSel] = useState<string | null>(null);
 
+  const [winSize, setWinSize] = useState<Record<string, { w: number; h: number }>>({});
+  const [resize, setResize] = useState<{
+    label: string;
+    edge: string;
+    x0: number;
+    y0: number;
+    w0: number;
+    h0: number;
+    px0: number;
+    py0: number;
+    moved: boolean;
+  } | null>(null);
+
   const [drag, setDrag] = useState<{
     kind: "icon" | "window";
     label: string;
@@ -106,6 +119,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   } | null>(null);
   const [overTrash, setOverTrash] = useState(false);
   const [overFox, setOverFox] = useState(false);
+
   const [foxTab, setFoxTab] = useState(FOX_HOME);
   const [foxHist, setFoxHist] = useState<string[]>([FOX_HOME]);
   const [foxIdx, setFoxIdx] = useState(0);
