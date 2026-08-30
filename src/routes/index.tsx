@@ -196,11 +196,42 @@ function Console() {
     }, 2600);
   }
 
+  function installHostLightdm(hostId: string, via: string) {
+    const host = vms.find((v) => v.id === hostId);
+    if (!host) return;
+    if (hostLightdm.includes(hostId)) {
+      push(makeLog("ok", `lightdm is already the newest version on ${host.hostname}`));
+      return;
+    }
+    if (host.status === "stopped") {
+      push(makeLog("warn", `${host.hostname} stopped · booting before apt install`));
+      runAction(host.id, "start");
+    }
+    push(makeLog("net", `${via} · ${host.hostname} (host OS)`));
+    push(makeLog("net", "Reading package lists... Building dependency tree..."));
+    setTimeout(() => {
+      setHostLightdm((prev) => (prev.includes(hostId) ? prev : [...prev, hostId]));
+      push(makeLog("ok", `Setting up lightdm + lightdm-gtk-greeter on ${host.hostname}`));
+      push(makeLog("ok", "systemctl set-default graphical.target · display-manager.service → lightdm.service"));
+      push(makeLog("ok", `host greeter live on ${host.hostname} seat0 · guest sessions will run on top of lightdm`));
+      setVms((prev) =>
+        prev.map((v) =>
+          v.id === hostId ? { ...v, mem: Math.min(96, v.mem + 4) } : v,
+        ),
+      );
+    }, 1400);
+  }
+
   function submitCommand() {
     const cmd = command.trim();
     if (!cmd) return;
     push(makeLog("net", `$ ${cmd}`));
     setCommand("");
+    const m = /^(?:sudo\s+)?apt(?:-get)?\s+install\s+(?:-y\s+)?(?<pkg>[\w.+-]+)/.exec(cmd);
+    if (m?.groups?.["pkg"] === "lightdm") {
+      installHostLightdm(selected.id, "apt install lightdm");
+      return;
+    }
     setTimeout(() => push(makeLog("ok", `${cmd.split(" ")[0]} completed · exit 0`)), 900);
   }
 
