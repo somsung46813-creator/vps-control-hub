@@ -508,7 +508,38 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     const y = ((e.clientY - r.top) / r.height) * 100;
     setCursor({ x: Math.round(x), y: Math.round(y) });
 
+    if (resize) {
+      const dx = x - resize.x0;
+      const dy = y - resize.y0;
+      let w = resize.w0;
+      let h = resize.h0;
+      let px = resize.px0;
+      let py = resize.py0;
+      if (resize.edge.includes("e")) w = resize.w0 + dx;
+      if (resize.edge.includes("s")) h = resize.h0 + dy;
+      if (resize.edge.includes("w")) {
+        w = resize.w0 - dx;
+        px = resize.px0 + dx;
+      }
+      if (resize.edge.includes("n")) {
+        h = resize.h0 - dy;
+        py = resize.py0 + dy;
+      }
+      w = Math.max(18, Math.min(100, w));
+      h = Math.max(14, Math.min(92, h));
+      px = Math.max(0, Math.min(100 - w, px));
+      py = Math.max(4.5, Math.min(96 - h, py));
+      setWinSize((s) => ({ ...s, [resize.label]: { w, h } }));
+      setWinPos((p) => ({ ...p, [resize.label]: { x: px, y: py } }));
+      if (!resize.moved) {
+        setResize({ ...resize, moved: true });
+        emit(`xfwm4: resize begin · ${resize.label} (${resize.edge} grip via ${mouse.bdf})`);
+      }
+      return;
+    }
+
     if (!drag) return;
+
     const isWin = drag.kind === "window";
     const nx = Math.min(isWin ? 74 : 94, Math.max(isWin ? 1 : 4, x - drag.dx));
     const ny = Math.min(isWin ? 74 : 90, Math.max(isWin ? 5 : 12, y - drag.dy));
