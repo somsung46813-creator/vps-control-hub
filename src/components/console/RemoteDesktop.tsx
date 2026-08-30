@@ -188,24 +188,55 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     setCursor({ x: Math.round(x), y: Math.round(y) });
 
     if (!drag) return;
-    const nx = Math.min(94, Math.max(4, x - drag.dx));
-    const ny = Math.min(90, Math.max(12, y - drag.dy));
-    setPos((prev) => ({ ...prev, [drag.label]: { x: nx, y: ny } }));
+    const isWin = drag.kind === "window";
+    const nx = Math.min(isWin ? 74 : 94, Math.max(isWin ? 1 : 4, x - drag.dx));
+    const ny = Math.min(isWin ? 74 : 90, Math.max(isWin ? 5 : 12, y - drag.dy));
+    if (isWin) setWinPos((prev) => ({ ...prev, [drag.label]: { x: nx, y: ny } }));
+    else setPos((prev) => ({ ...prev, [drag.label]: { x: nx, y: ny } }));
     if (!drag.moved) {
       dragMovedRef.current = true;
       setDrag({ ...drag, moved: true });
-      emit(`xdnd: drag begin · ${drag.label} (motion via ${mouse.bdf})`);
+      emit(
+        isWin
+          ? `xfwm4: move window · ${drag.label} (motion via ${mouse.bdf})`
+          : `xdnd: drag begin · ${drag.label} (motion via ${mouse.bdf})`,
+      );
     }
+    if (isWin) return;
     const bin = pos["Trash"];
     setOverTrash(
       drag.label !== "Trash" && bin != null && Math.abs(nx - bin.x) < 7 && Math.abs(ny - bin.y) < 9,
     );
   }
 
+  function startWindowDrag(e: React.MouseEvent, label: string) {
+    if (!mouseLive) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const r = frameRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const p = winPos[label] ?? { x: 30, y: 20 };
+    setTopWin(label);
+    setDrag({
+      kind: "window",
+      label,
+      dx: ((e.clientX - r.left) / r.width) * 100 - p.x,
+      dy: ((e.clientY - r.top) / r.height) * 100 - p.y,
+      moved: false,
+    });
+  }
+
   function endDrag() {
     if (!drag) return;
     const label = drag.label;
-    if (drag.moved && overTrash && label !== "Trash") {
+    if (drag.kind === "window") {
+      if (drag.moved) {
+        const p = winPos[label];
+        emit(
+          `xfwm4: window placed · ${label} @ ${Math.round(p?.x ?? 0)},${Math.round(p?.y ?? 0)}`,
+        );
+      }
+    } else if (drag.moved && overTrash && label !== "Trash") {
       setTrashed((prev) => [...prev, label]);
       emit(`gio trash "${DESKTOP_ICONS.find((i) => i.label === label)?.path}" · ${label} → Trash`);
       setSelected(null);
@@ -220,6 +251,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       dragMovedRef.current = false;
     }, 0);
   }
+
 
 
 
