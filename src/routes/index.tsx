@@ -373,6 +373,33 @@ function Console() {
     }, 1800);
   }
 
+  function provisionFromPlan(plan: ProvisionPlan) {
+    const tpl = GUEST_TEMPLATES[plan.templateIndex]!;
+    const guest = makeGuest(plan.guestName, selected.id, tpl, stamp());
+    const src = interpreterSource(hypervisor.packageName, hypervisor.version);
+    if (src.armed) guest.signature = guestSignature(guest, src);
+    guest.autostart = plan.autostart;
+    setGuests((prev) => [guest, ...prev]);
+    plan.steps.forEach((line, i) => {
+      setTimeout(() => push(makeLog("net", line)), i * 220);
+    });
+    setTimeout(
+      () => {
+        setGuests((prev) =>
+          prev.map((g) => (g.id === guest.id ? { ...g, status: "powered off" } : g)),
+        );
+        push(
+          makeLog(
+            "ok",
+            `spectrum interpreter provisioned ${plan.guestName} · ${tpl.diskGb} GB vdi · base44 ${guest.signature ?? plan.digest}`,
+          ),
+        );
+      },
+      plan.steps.length * 220 + 600,
+    );
+  }
+
+
   function powerGuest(guest: Guest, action: "start" | "stop" | "pause") {
     const next =
       action === "start" ? "running" : action === "pause" ? "paused" : "powered off";
