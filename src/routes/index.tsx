@@ -303,12 +303,24 @@ function Console() {
         />
 
         <section className="px-6 py-5 grid grid-cols-1 xl:grid-cols-[1.15fr_1fr] gap-3">
-          <InstanceTable
-            vms={sorted}
-            selectedId={selected.id}
-            onSelect={setSelectedId}
-            onAction={runAction}
-          />
+          <div className="flex flex-col gap-3">
+            <InstanceTable
+              vms={sorted}
+              selectedId={selected.id}
+              onSelect={setSelectedId}
+              onAction={runAction}
+            />
+            <FileServer
+              vm={selected}
+              files={vmFiles}
+              onUpload={uploadFiles}
+              onDownload={downloadHostFile}
+              onRun={runHostFile}
+              onDelete={deleteHostFile}
+              onTogglePerm={togglePerm}
+            />
+          </div>
+
           <div className="flex flex-col gap-3">
             <DetailPanel vm={selected} onAction={runAction} />
             <LogStream
