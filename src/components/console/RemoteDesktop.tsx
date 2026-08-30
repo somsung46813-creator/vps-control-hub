@@ -172,6 +172,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
 
   const [trashed, setTrashed] = useState<string[]>([]);
+  const [fmSel, setFmSel] = useState<string | null>(null);
+  const [fmTrash, setFmTrash] = useState<string[]>([]);
+  const [fmMenu, setFmMenu] = useState<{ x: number; y: number; entry: string } | null>(null);
+
   const dragMovedRef = useRef(false);
   const [busLog, setBusLog] = useState<string[]>([]);
   const [grabbed, setGrabbed] = useState(true);
