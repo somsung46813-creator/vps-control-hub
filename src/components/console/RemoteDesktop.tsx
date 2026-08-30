@@ -225,9 +225,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     ubuntu@{guest.name}:~$ {typed}
                     <span className="animate-pulse">▌</span>
                   </p>
-                  {!keyboard.attached && (
+                  {!keyboard.attached ? (
                     <p className="text-amber">input: no keyboard on bus — attach ⌨ to type</p>
-                  )}
+                  ) : !grabbed ? (
+                    <p className="text-amber">input: grab released — keystrokes go to local desktop</p>
+                  ) : null}
                 </div>
               </div>
               {/* bottom taskbar */}
@@ -237,7 +239,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span>ws 1 · {conn.rdpTarget}</span>
               </div>
               {/* remote cursor */}
-              {mouse.attached && (
+              {mouseLive && (
                 <div
                   className="absolute h-2.5 w-2.5 rounded-full bg-neon/90 shadow-[0_0_8px_rgba(120,220,255,0.9)] pointer-events-none transition-[left,top] duration-75"
                   style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }}
