@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { normalizeUrl, simulateHttp, type HttpExchange } from "@/lib/httpsim";
+
+const FOX_HOME = "https://start.mozilla.org";
 import type { Guest } from "@/lib/guests";
 import { guestConn } from "@/lib/guestshell";
 import {
