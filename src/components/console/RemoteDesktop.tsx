@@ -399,8 +399,20 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
               {/* thunar window opened from a desktop icon */}
               {openWin && (
-                <div className="absolute right-[6%] top-[18%] z-30 w-[38%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px]">
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5]">
+                <div
+                  style={{ left: `${winPos.thunar.x}%`, top: `${winPos.thunar.y}%` }}
+                  onMouseDown={() => setTopWin("thunar")}
+                  className={`absolute w-[38%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px] ${
+                    topWin === "thunar" ? "z-40" : "z-30"
+                  } ${drag?.kind === "window" && drag.label === "thunar" ? "opacity-90" : ""}`}
+                >
+                  <div
+                    onMouseDown={(e) => startWindowDrag(e, "thunar")}
+                    className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
+                      mouseLive ? "cursor-none" : "cursor-default"
+                    }`}
+                  >
+
                     <button
                       type="button"
                       aria-label="Close window"
