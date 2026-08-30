@@ -116,12 +116,16 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_18rem]">
         {/* display */}
         <div
           ref={frameRef}
           onMouseMove={move}
-          className="relative aspect-video bg-[#0a141f] overflow-hidden font-mono select-none cursor-none"
+          className={`relative aspect-video bg-[#0a141f] overflow-hidden font-mono select-none ${
+            mouse.attached ? "cursor-none" : "cursor-not-allowed"
+          }`}
         >
+
           {!done ? (
             <div className="absolute inset-0 p-5 text-[11px] leading-5 text-mint/90">
               {HANDSHAKE.slice(0, phase).map((line) => (
