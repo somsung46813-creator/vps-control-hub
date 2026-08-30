@@ -582,9 +582,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   function openIcon(label: string) {
     const icon =
       DESKTOP_ICONS.find((i) => i.label === label) ??
-      (label === "Chrome" ? CHROME_ICON : undefined);
+      (label === "Chrome" ? CHROME_ICON : label === "Chromium" ? CHROMIUM_ICON : undefined);
     if (!icon) return;
     setSelected(label);
+    if (label === "Chromium") {
+      emit(`chromium: launching ${icon.path} · click via ${mouse.bdf}`);
+      setBrowserApp("chromium");
+      setFoxWin(true);
+      setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
+      setTopWin("firefox");
+      setFoxReload((n) => n + 1);
+      setTimeout(() => emit("chromium: process forked · pid 5310 · sandbox helpers ready"), 400);
+      return;
+    }
     if (label === "Chrome") {
       if (chromeShortcut !== "exec") {
         emit("gio: permission denied · ~/Desktop/google-chrome.desktop is not executable");
@@ -971,7 +981,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="text-mint">●</span>
               </div>
               {/* desktop icons — click to select, double click to open, drag to move / drop on Trash */}
-              {(chromeShortcut ? [...DESKTOP_ICONS, CHROME_ICON] : DESKTOP_ICONS)
+              {[...DESKTOP_ICONS, ...(chromiumInstalled ? [CHROMIUM_ICON] : []), ...(chromeShortcut ? [CHROME_ICON] : [])]
                 .filter((i) => !trashed.includes(i.label))
                 .map((icon) => {
                 const p = pos[icon.label] ?? { x: 3, y: 14 };
