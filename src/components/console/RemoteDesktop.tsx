@@ -1885,6 +1885,51 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 {installingFox ? "installing firefox…" : "🦊 install firefox"}
               </button>
             )}
+            <button
+              type="button"
+              title="launch Firefox in the RDP session and focus its window"
+              onClick={() => launchBrowser("firefox")}
+              disabled={!done}
+              className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 disabled:opacity-40 transition"
+            >
+              🦊 launch firefox
+            </button>
+            <button
+              type="button"
+              title="launch Chromium in the RDP session and focus its window"
+              onClick={() => launchBrowser("chromium")}
+              disabled={!done}
+              className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 disabled:opacity-40 transition"
+            >
+              🧭 launch chromium
+            </button>
+          </span>
+          <span className="flex items-center gap-2">
+            <span
+              className={
+                linkState === "up" ? "text-mint" : linkState === "stalled" ? "text-amber" : "text-neon"
+              }
+            >
+              link {linkState} · rtt {rtt} ms{retries > 0 ? ` · retries ${retries}` : ""}
+            </span>
+            <button
+              type="button"
+              title="toggle automatic reconnect on handshake loss or timeout"
+              onClick={() => setAutoReconnect((v) => !v)}
+              className={`px-1.5 py-0.5 rounded ring-1 transition ${
+                autoReconnect ? "text-neon ring-neon/40 bg-neon/10" : "text-dim ring-railedge hover:text-ink"
+              }`}
+            >
+              auto-reconnect {autoReconnect ? "on" : "off"}
+            </button>
+            <button
+              type="button"
+              title="reconnect the RDP session now"
+              onClick={reconnectNow}
+              className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 transition"
+            >
+              ⟲ reconnect
+            </button>
           </span>
           <span>
             ptr {cursor.x},{cursor.y} ·{" "}
