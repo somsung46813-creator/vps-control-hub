@@ -818,24 +818,48 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               )}
               {/* terminal window */}
               <div
-                style={{ left: `${wp("term").x}%`, top: `${wp("term").y}%` }}
+                style={winStyle("term", "52%")}
                 onMouseDown={() => setTopWin("term")}
                 onMouseEnter={() => hoverFocus("term")}
 
-                className={`absolute w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px] ${
-                  topWin === "term" ? "z-40" : "z-30"
-                } ${drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""}`}
+                className={`absolute rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px] ${
+                  ws("term") === "min" ? "hidden" : ""
+                } ${topWin === "term" ? "z-40" : "z-30"} ${
+                  drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""
+                }`}
               >
                 <div
                   onMouseDown={(e) => startWindowDrag(e, "term")}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    toggleMaximize("term");
+                  }}
                   className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
                     mouseLive ? "cursor-none" : "cursor-default"
                   }`}
                 >
 
                   <span className="h-1.5 w-1.5 rounded-full bg-destructive/70" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber/70" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-mint/70" />
+                  <button
+                    type="button"
+                    aria-label="Minimize terminal"
+                    title="minimize"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      minimizeWin("term");
+                    }}
+                    className="h-1.5 w-1.5 rounded-full bg-amber/70 hover:bg-amber"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Maximize terminal"
+                    title="maximize"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMaximize("term");
+                    }}
+                    className="h-1.5 w-1.5 rounded-full bg-mint/70 hover:bg-mint"
+                  />
                   <span className="ml-1.5">ubuntu@{guest.name}: ~</span>
                 </div>
                 <div
