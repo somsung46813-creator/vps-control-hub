@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { normalizeUrl, simulateHttp, type HttpExchange } from "@/lib/httpsim";
+
+const FOX_HOME = "https://start.mozilla.org";
 import type { Guest } from "@/lib/guests";
 import { guestConn } from "@/lib/guestshell";
 import {
@@ -103,7 +106,15 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   } | null>(null);
   const [overTrash, setOverTrash] = useState(false);
   const [overFox, setOverFox] = useState(false);
-  const [foxTab, setFoxTab] = useState("https://start.mozilla.org");
+  const [foxTab, setFoxTab] = useState(FOX_HOME);
+  const [foxHist, setFoxHist] = useState<string[]>([FOX_HOME]);
+  const [foxIdx, setFoxIdx] = useState(0);
+  const [foxUrlInput, setFoxUrlInput] = useState(FOX_HOME);
+  const [foxLoading, setFoxLoading] = useState(false);
+  const [foxResp, setFoxResp] = useState<HttpExchange | null>(null);
+  const [httpView, setHttpView] = useState(false);
+  const [foxReload, setFoxReload] = useState(0);
+
 
   const [trashed, setTrashed] = useState<string[]>([]);
   const dragMovedRef = useRef(false);
@@ -358,6 +369,55 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     }
   }
 
+  /** navigate the browser to a url (pushes session history) */
+  function goFox(raw: string) {
+    const url = normalizeUrl(raw);
+    setFoxHist((h) => [...h.slice(0, foxIdx + 1), url]);
+    setFoxIdx((i) => i + 1);
+    setFoxTab(url);
+    setFoxUrlInput(url);
+  }
+
+  function foxBack() {
+    if (foxIdx <= 0) return;
+    const url = foxHist[foxIdx - 1]!;
+    setFoxIdx(foxIdx - 1);
+    setFoxTab(url);
+    setFoxUrlInput(url);
+    emit("firefox: session history back");
+  }
+
+  function foxForward() {
+    if (foxIdx >= foxHist.length - 1) return;
+    const url = foxHist[foxIdx + 1]!;
+    setFoxIdx(foxIdx + 1);
+    setFoxTab(url);
+    setFoxUrlInput(url);
+    emit("firefox: session history forward");
+  }
+
+  // network engine — fetch the current tab whenever it changes
+  useEffect(() => {
+    if (!foxWin) return;
+    let alive = true;
+    setFoxLoading(true);
+    const ex = simulateHttp(foxTab);
+    emit(`firefox: ${ex.method} ${ex.url} · ${ex.protocol}`);
+    const t = setTimeout(() => {
+      if (!alive) return;
+      setFoxResp(ex);
+      setFoxLoading(false);
+      emit(
+        `firefox: ${ex.status} ${ex.statusText} · ${ex.bytes} B · ttfb ${ex.ttfbMs}ms · ${ex.totalMs}ms`,
+      );
+    }, 320 + (ex.ttfbMs % 260));
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foxTab, foxWin, foxReload]);
+
   function openIcon(label: string) {
     const icon = DESKTOP_ICONS.find((i) => i.label === label);
     if (!icon) return;
@@ -367,8 +427,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       setFoxWin(true);
       setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
       setTopWin("firefox");
-      setTimeout(() => emit("firefox: process forked · pid 4821 · GPU compositing enabled"), 500);
-      setTimeout(() => emit("firefox: session restored · https://start.mozilla.org rendered"), 1100);
+      setFoxReload((n) => n + 1);
+      setTimeout(() => emit("firefox: process forked · pid 4821 · GPU compositing enabled"), 400);
       return;
     }
     setOpenWin(label);
@@ -491,7 +551,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       setSelected(null);
     } else if (drag.moved && overFox && label !== "Firefox") {
       const path = DESKTOP_ICONS.find((i) => i.label === label)?.path ?? label;
-      setFoxTab(`file://${path}`);
+      goFox(`file://${path}`);
       setTopWin("firefox");
       emit(`xdnd: drop ${label} → firefox window · new tab file://${path}`);
       setTimeout(() => emit(`firefox: rendering file://${path} · text/html decoded`), 400);
@@ -759,7 +819,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               {/* firefox browser window */}
               {foxWin && ws("firefox") !== "min" && (
                 <div
-                  style={winStyle("firefox", "46%")}
+                  style={winStyle("firefox", httpView ? "64%" : "46%")}
                   onMouseDown={() => setTopWin("firefox")}
                   onMouseEnter={() => hoverFocus("firefox")}
                   className={`absolute rounded-md bg-[#101d2b]/95 shadow-2xl text-[10px] ${
@@ -808,22 +868,134 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       }}
                       className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
                     />
-                    <span className="ml-1.5 truncate">🦊 {foxTab.startsWith("file://") ? foxTab.split("/").pop() : "New Tab"} — Mozilla Firefox</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[#3d5a7a]/60">
-                    <span className="text-[#8fa8c0]">←</span>
-                    <span className="text-[#8fa8c0]">→</span>
-                    <span className="text-[#8fa8c0]">⟳</span>
-                    <span className="flex-1 truncate rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff]">
-                      {foxTab}
+                    <span className="ml-1.5 truncate">
+                      🦊 {foxLoading ? "Loading…" : foxResp?.title ?? "New Tab"} — Mozilla Firefox
                     </span>
                   </div>
-                  <div className="p-3 leading-5 text-[#c8d6e5]">
-                    <p className="text-[#7ec8ff] text-[11px] font-semibold">Firefox 128.0 (snap)</p>
-                    <p className="text-[#8fa8c0]">
-                      Session restored on {guest.name} · GPU compositing active
-                    </p>
-                    <p className="mt-1">🔍 Search with Google or enter address</p>
+                  {/* navigation toolbar */}
+                  <div
+                    className="flex items-center gap-1 px-2 py-1 border-b border-[#3d5a7a]/60"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      title="back"
+                      disabled={foxIdx <= 0}
+                      onClick={foxBack}
+                      className="text-[#8fa8c0] px-1 disabled:opacity-30 hover:text-[#7ec8ff]"
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      title="forward"
+                      disabled={foxIdx >= foxHist.length - 1}
+                      onClick={foxForward}
+                      className="text-[#8fa8c0] px-1 disabled:opacity-30 hover:text-[#7ec8ff]"
+                    >
+                      →
+                    </button>
+                    <button
+                      type="button"
+                      title="reload"
+                      onClick={() => setFoxReload((n) => n + 1)}
+                      className="text-[#8fa8c0] px-1 hover:text-[#7ec8ff]"
+                    >
+                      ⟳
+                    </button>
+                    <button
+                      type="button"
+                      title="home"
+                      onClick={() => goFox(FOX_HOME)}
+                      className="text-[#8fa8c0] px-1 hover:text-[#7ec8ff]"
+                    >
+                      ⌂
+                    </button>
+                    <form
+                      className="flex-1 min-w-0"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        goFox(foxUrlInput);
+                      }}
+                    >
+                      <input
+                        value={foxUrlInput}
+                        onChange={(e) => setFoxUrlInput(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        spellCheck={false}
+                        aria-label="Address bar"
+                        placeholder="Search with DuckDuckGo or enter address"
+                        className="w-full rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff] outline-none ring-1 ring-transparent focus:ring-[#7ec8ff]/50"
+                      />
+                    </form>
+                    <button
+                      type="button"
+                      title="toggle HTTP view (network inspector)"
+                      onClick={() => setHttpView((v) => !v)}
+                      className={`px-1.5 py-0.5 rounded ring-1 ${
+                        httpView
+                          ? "text-mint ring-mint/50 bg-mint/10"
+                          : "text-[#8fa8c0] ring-[#3d5a7a] hover:text-[#7ec8ff]"
+                      }`}
+                    >
+                      HTTP
+                    </button>
+                  </div>
+                  {/* viewport */}
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] max-h-[52%]">
+                    <div className="p-3 leading-5 text-[#c8d6e5] overflow-y-auto">
+                      {foxLoading || !foxResp ? (
+                        <p className="text-[#8fa8c0]">Connecting to {normalizeUrl(foxTab)}…</p>
+                      ) : (
+                        <>
+                          <p className="text-[#7ec8ff] text-[11px] font-semibold">{foxResp.heading}</p>
+                          {foxResp.lines.map((l) => (
+                            <p key={l} className="text-[#8fa8c0]">{l}</p>
+                          ))}
+                          {foxResp.links.map((lk) => (
+                            <button
+                              key={lk.href}
+                              type="button"
+                              onClick={() => goFox(lk.href)}
+                              className="block mt-1 text-left text-[#7ec8ff] underline underline-offset-2 hover:text-mint"
+                            >
+                              {lk.label}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                    {httpView && (
+                      <div className="md:w-56 border-t md:border-t-0 md:border-l border-[#3d5a7a]/60 p-2 overflow-y-auto text-[9px] leading-4">
+                        <p className="text-[#8fa8c0] uppercase tracking-wider">network · headers</p>
+                        {foxResp && !foxLoading ? (
+                          <>
+                            <p className={foxResp.status === 200 ? "text-mint" : "text-amber"}>
+                              {foxResp.status} {foxResp.statusText} · {foxResp.protocol}
+                            </p>
+                            <p className="text-[#8fa8c0] truncate">{foxResp.remote}</p>
+                            <p className="text-[#8fa8c0] truncate">{foxResp.tls}</p>
+                            <p className="text-[#8fa8c0]">
+                              ttfb {foxResp.ttfbMs}ms · total {foxResp.totalMs}ms · {foxResp.bytes} B
+                            </p>
+                            <p className="mt-1.5 text-[#7ec8ff]">▸ request</p>
+                            {foxResp.requestHeaders.map((h) => (
+                              <p key={h.name} className="text-[#8fa8c0] truncate">
+                                <span className="text-[#c8d6e5]">{h.name}:</span> {h.value}
+                              </p>
+                            ))}
+                            <p className="mt-1.5 text-[#7ec8ff]">▾ response</p>
+                            {foxResp.responseHeaders.map((h) => (
+                              <p key={h.name} className="text-[#8fa8c0] truncate">
+                                <span className="text-[#c8d6e5]">{h.name}:</span> {h.value}
+                              </p>
+                            ))}
+                          </>
+                        ) : (
+                          <p className="text-[#8fa8c0]">waiting for response…</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
