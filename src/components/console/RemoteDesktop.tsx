@@ -1355,13 +1355,41 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
                     />
                     <span className="ml-1.5 truncate">
-                      {openWin} — Thunar {DESKTOP_ICONS.find((i) => i.label === openWin)?.path}
+                      {openWin} — Thunar {fmPath}
                     </span>
+                  </div>
+                  {/* location bar */}
+                  <div className="flex items-center gap-1 px-2 py-1 bg-[#16273a] border-b border-[#3d5a7a]/60">
+                    <button
+                      type="button"
+                      aria-label="Back"
+                      disabled={fmBack.length === 0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fmGoBack();
+                      }}
+                      className="px-1 rounded hover:bg-[#2e4258] disabled:opacity-30 text-[#7ec8ff]"
+                    >
+                      ◂
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Up one level"
+                      disabled={fmPath === "/"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fmGoUp();
+                      }}
+                      className="px-1 rounded hover:bg-[#2e4258] disabled:opacity-30 text-[#7ec8ff]"
+                    >
+                      ⬆
+                    </button>
+                    <span className="truncate text-[#7ec8ff]">thunar://{fmPath}</span>
                   </div>
                   <div className="relative p-2 leading-5 text-[#c8d6e5]">
                     {(openWin === "Trash"
                       ? trashed.map((t) => `${t}/`)
-                      : (DESKTOP_ICONS.find((i) => i.label === openWin)?.entries ?? [])
+                      : (FM_TREE[fmPath] ?? DESKTOP_ICONS.find((i) => i.label === openWin)?.entries ?? [])
                     )
                       .filter((f) => !fmTrash.includes(f))
                       .map((f) => (
@@ -1376,11 +1404,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                           }}
                           onDoubleClick={(e) => {
                             e.stopPropagation();
-                            emit(
-                              f.endsWith("/")
-                                ? `thunar: enter directory ${f} · xdg-open`
-                                : `xdg-open: ${f} · launching default handler`,
-                            );
+                            setFmMenu(null);
+                            openFmEntry(f);
                           }}
                           onContextMenu={(e) => {
                             e.preventDefault();
