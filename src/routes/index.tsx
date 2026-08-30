@@ -459,6 +459,7 @@ function Console() {
               onPower={powerGuest}
               onDelete={deleteGuest}
               onConnect={connectGuest}
+              onOpenDesktop={openDesktop}
               onToggleAutostart={toggleGuestAutostart}
             />
 
