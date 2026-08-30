@@ -540,6 +540,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     setSelected(label);
     if (label === "Firefox") {
       emit(`firefox: launching ${icon.path} · pointer click via ${mouse.bdf}`);
+      setBrowserApp("firefox");
       setFoxWin(true);
       setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
       setTopWin("firefox");
