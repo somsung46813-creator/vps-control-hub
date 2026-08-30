@@ -396,6 +396,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     setOverTrash(
       drag.label !== "Trash" && bin != null && Math.abs(nx - bin.x) < 7 && Math.abs(ny - bin.y) < 9,
     );
+    // firefox window is a drop target — hit-test cursor against its rect
+    if (foxWin && drag.label !== "Firefox") {
+      const fp = wp("firefox");
+      const hit = x >= fp.x && x <= fp.x + 46 && y >= fp.y && y <= fp.y + 42;
+      if (hit !== overFox) setOverFox(hit);
+    } else if (overFox) {
+      setOverFox(false);
+    }
   }
 
   function wp(label: string) {
