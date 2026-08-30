@@ -508,6 +508,20 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     type="button"
                     disabled={!mouseLive}
                     style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!mouseLive) return;
+                      setSelected(icon.label);
+                      const r = frameRef.current?.getBoundingClientRect();
+                      if (!r) return;
+                      setMenu({
+                        x: ((e.clientX - r.left) / r.width) * 100,
+                        y: ((e.clientY - r.top) / r.height) * 100,
+                        label: icon.label,
+                      });
+                    }}
+
                     onMouseDown={(e) => {
                       if (!mouseLive) return;
                       e.stopPropagation();
