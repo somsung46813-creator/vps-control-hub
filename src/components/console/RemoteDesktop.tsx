@@ -77,7 +77,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const dragMovedRef = useRef(false);
   const [busLog, setBusLog] = useState<string[]>([]);
   const [grabbed, setGrabbed] = useState(true);
+  const [clipMode, setClipMode] = useState<CLIP_MODE>("bidirectional");
+  const [clipGuest, setClipGuest] = useState("");
+  const [clipXfer, setClipXfer] = useState<string | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
+
 
   const mouse = devices.find((d) => d.cls === "mouse")!;
   const keyboard = devices.find((d) => d.cls === "keyboard")!;
