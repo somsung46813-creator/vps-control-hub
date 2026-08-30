@@ -746,12 +746,12 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 </div>
               )}
               {/* firefox browser window */}
-              {foxWin && (
+              {foxWin && ws("firefox") !== "min" && (
                 <div
-                  style={{ left: `${wp("firefox").x}%`, top: `${wp("firefox").y}%` }}
+                  style={winStyle("firefox", "46%")}
                   onMouseDown={() => setTopWin("firefox")}
                   onMouseEnter={() => hoverFocus("firefox")}
-                  className={`absolute w-[46%] rounded-md bg-[#101d2b]/95 shadow-2xl text-[10px] ${
+                  className={`absolute rounded-md bg-[#101d2b]/95 shadow-2xl text-[10px] ${
                     overFox ? "ring-2 ring-mint" : "ring-1 ring-[#3d5a7a]"
                   } ${
                     topWin === "firefox" ? "z-40" : "z-30"
@@ -759,6 +759,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 >
                   <div
                     onMouseDown={(e) => startWindowDrag(e, "firefox")}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      toggleMaximize("firefox");
+                    }}
                     className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
                       mouseLive ? "cursor-none" : "cursor-default"
                     }`}
@@ -773,8 +777,26 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       }}
                       className="h-2 w-2 rounded-full bg-destructive/80 hover:bg-destructive"
                     />
-                    <span className="h-2 w-2 rounded-full bg-amber/70" />
-                    <span className="h-2 w-2 rounded-full bg-mint/70" />
+                    <button
+                      type="button"
+                      aria-label="Minimize Firefox"
+                      title="minimize"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        minimizeWin("firefox");
+                      }}
+                      className="h-2 w-2 rounded-full bg-amber/70 hover:bg-amber"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Maximize Firefox"
+                      title="maximize"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMaximize("firefox");
+                      }}
+                      className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
+                    />
                     <span className="ml-1.5 truncate">🦊 {foxTab.startsWith("file://") ? foxTab.split("/").pop() : "New Tab"} — Mozilla Firefox</span>
                   </div>
                   <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[#3d5a7a]/60">
