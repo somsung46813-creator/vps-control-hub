@@ -55,6 +55,12 @@ const DESKTOP_ICONS: Array<{
     entries: ["bin/", "etc/", "home/", "var/", "usr/"],
   },
   { label: "Trash", glyph: "🗑", path: "trash:///", entries: [] },
+  {
+    label: "Firefox",
+    glyph: "🦊",
+    path: "/usr/lib/firefox/firefox",
+    entries: ["firefox", "firefox-bin", "omni.ja", "browser/", "defaults/"],
+  },
 ];
 
 export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
