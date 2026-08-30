@@ -60,6 +60,59 @@ const DESKTOP_ICONS: Array<{
   { label: "Trash", glyph: "🗑", path: "trash:///", entries: [] },
 ];
 
+/** Virtual guest filesystem: children of each directory path Thunar can navigate into. */
+const FM_TREE: Record<string, string[]> = {
+  "/": ["bin/", "etc/", "home/", "usr/", "var/"],
+  "/bin": ["bash", "ls", "cp", "mv", "chmod", "systemctl"],
+  "/etc": ["lightdm/", "xfce4/", "fstab", "hostname", "apt/"],
+  "/etc/lightdm": ["lightdm.conf", "users.conf"],
+  "/etc/xfce4": ["xfce4-panel.xml", "xfwm4.xml"],
+  "/etc/apt": ["sources.list", "sources.list.d/"],
+  "/home": ["ubuntu/"],
+  "/home/ubuntu": ["Desktop/", "Documents/", "Downloads/", ".xinitrc", ".bashrc"],
+  "/home/ubuntu/Desktop": ["google-chrome.desktop"],
+  "/home/ubuntu/Documents": ["notes.txt", "readme.md"],
+  "/home/ubuntu/Downloads": ["firefox-latest.tar.bz2", "setup.deb"],
+  "/usr": ["bin/", "share/", "lib/"],
+  "/usr/bin": ["xfce4-session", "startxfce4", "xrdp", "lightdm", "chromium-browser"],
+  "/usr/share": ["applications/", "icons/"],
+  "/usr/share/applications": ["firefox.desktop", "google-chrome.desktop", "thunar.desktop"],
+  "/usr/lib": ["firefox/", "xorg/"],
+  "/var": ["log/", "cache/"],
+  "/var/log": ["syslog", "Xorg.0.log", "lightdm/"],
+  "/var/log/lightdm": ["lightdm.log", "x-0.log"],
+};
+
+/** Text contents served when a file is opened in the Thunar viewer. */
+const FM_FILE_TEXT: Record<string, string> = {
+  "/home/ubuntu/.bashrc":
+    "# ~/.bashrc\nexport PS1='\\u@\\h:\\w\\$ '\nalias ll='ls -alF'\nexport DISPLAY=:0",
+  "/home/ubuntu/.xinitrc": "#!/bin/sh\nexec startxfce4",
+  "/home/ubuntu/Documents/notes.txt":
+    "vectorad guest notes\n- lightdm greeter on tty7\n- xrdp on 3389, VRDE 3390\n- cliprdr channel synced",
+  "/home/ubuntu/Documents/readme.md": "# vectorad\nXFCE4 desktop on Ubuntu 24.04 guest.",
+  "/etc/hostname": "vectorad",
+  "/etc/fstab": "/dev/sda1 / ext4 defaults 0 1\n/dev/sr0 /media/cdrom udf,iso9660 ro 0 0",
+  "/etc/lightdm/lightdm.conf": "[Seat:*]\ngreeter-session=lightdm-gtk-greeter\nautologin-user=ubuntu",
+  "/usr/share/applications/firefox.desktop":
+    "[Desktop Entry]\nName=Firefox\nExec=firefox %u\nType=Application\nIcon=firefox",
+  "/usr/share/applications/google-chrome.desktop":
+    "[Desktop Entry]\nName=Google Chrome\nExec=/opt/google/chrome/chrome %U\nType=Application",
+  "/usr/share/applications/thunar.desktop":
+    "[Desktop Entry]\nName=Thunar File Manager\nExec=thunar %U\nType=Application",
+};
+
+function fmJoin(dir: string, entry: string): string {
+  const clean = entry.replace(/\/$/, "");
+  return dir === "/" ? `/${clean}` : `${dir}/${clean}`;
+}
+
+function fmParent(dir: string): string {
+  if (dir === "/") return "/";
+  const up = dir.slice(0, dir.lastIndexOf("/"));
+  return up === "" ? "/" : up;
+}
+
 /** Appears on the desktop after Firefox is installed (apt/snap or the one-click installer). */
 const FIREFOX_ICON = {
   label: "Firefox",
