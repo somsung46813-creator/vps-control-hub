@@ -162,10 +162,22 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
         <div
           ref={frameRef}
           onMouseMove={move}
+          onClick={() => {
+            if (done && !grabbed) toggleGrab();
+          }}
           className={`relative aspect-video bg-[#0a141f] overflow-hidden font-mono select-none ${
-            mouse.attached ? "cursor-none" : "cursor-not-allowed"
+            mouseLive ? "cursor-none" : grabbed ? "cursor-not-allowed" : "cursor-pointer"
           }`}
         >
+          {/* released-input overlay — click to re-grab */}
+          {done && !grabbed && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-void/60 backdrop-blur-[2px]">
+              <p className="text-sm font-mono text-amber">input released — local desktop has control</p>
+              <p className="text-[11px] font-mono text-dim">
+                click the display or press “grab input” to send mouse + keyboard to {guest.name}
+              </p>
+            </div>
+          )}
 
           {!done ? (
             <div className="absolute inset-0 p-5 text-[11px] leading-5 text-mint/90">
