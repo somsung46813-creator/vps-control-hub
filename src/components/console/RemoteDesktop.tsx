@@ -786,8 +786,15 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
         <div
           ref={frameRef}
           onMouseMove={move}
-          onMouseUp={endDrag}
-          onMouseLeave={endDrag}
+          onMouseUp={() => {
+            endResize();
+            endDrag();
+          }}
+          onMouseLeave={() => {
+            endResize();
+            endDrag();
+          }}
+
           onContextMenu={(e) => {
             if (!mouseLive) return;
             e.preventDefault();
