@@ -1405,6 +1405,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                           onDoubleClick={(e) => {
                             e.stopPropagation();
                             setFmMenu(null);
+                            if (openWin === "Trash") {
+                              emit(`trash: inspect ${f} · restore via right-click not available`);
+                              return;
+                            }
                             openFmEntry(f);
                           }}
                           onContextMenu={(e) => {
@@ -1443,12 +1447,12 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                         <button
                           type="button"
                           onClick={() => {
-                            emit(
-                              fmMenu.entry.endsWith("/")
-                                ? `thunar: open folder ${fmMenu.entry}`
-                                : `xdg-open: ${fmMenu.entry} · default handler`,
-                            );
                             setFmMenu(null);
+                            if (openWin === "Trash") {
+                              emit(`trash: open ${fmMenu.entry} · not supported from trash:///`);
+                              return;
+                            }
+                            openFmEntry(fmMenu.entry);
                           }}
                           className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
                         >
