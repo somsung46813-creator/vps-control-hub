@@ -364,14 +364,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     if (label === "Firefox") {
       emit(`firefox: launching ${icon.path} · pointer click via ${mouse.bdf}`);
       setFoxWin(true);
-      setWinState((s) => ({ ...s, firefox: s.firefox === "max" ? "max" : "normal" }));
+      setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
       setTopWin("firefox");
       setTimeout(() => emit("firefox: process forked · pid 4821 · GPU compositing enabled"), 500);
       setTimeout(() => emit("firefox: session restored · https://start.mozilla.org rendered"), 1100);
       return;
     }
     setOpenWin(label);
-    setWinState((s) => ({ ...s, thunar: s.thunar === "max" ? "max" : "normal" }));
+    setWinState((s) => ({ ...s, thunar: s['thunar'] === "max" ? "max" : "normal" }));
     setTopWin("thunar");
     emit(`thunar: open ${icon.path} · pointer click via ${mouse.bdf}`);
   }
