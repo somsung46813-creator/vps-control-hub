@@ -275,6 +275,29 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }
 
   // ── guest shell: run whatever is on the prompt line ──────────────────────
+  // one-click Firefox install: runs the apt sequence and drops the launchable icon
+  function installFirefox() {
+    if (firefoxInstalled || installingFox) return;
+    setInstallingFox(true);
+    emit("apt: installing firefox · resolving dependencies");
+    setTermLines((l) =>
+      [
+        ...l,
+        "ubuntu@vectorad:~$ sudo apt install -y firefox",
+        "Reading package lists... Done",
+        "Setting up firefox ...",
+        "Processing triggers for desktop-file-utils ...",
+      ].slice(-9),
+    );
+    setTimeout(() => {
+      setFirefoxInstalled(true);
+      setInstallingFox(false);
+      setTrashed((prev) => prev.filter((l) => l !== "Firefox"));
+      emit("gio: firefox.desktop registered · launchable icon added to desktop");
+      setTermLines((l) => [...l, "# firefox installed — double-click the 🦊 icon to launch"].slice(-9));
+    }, 1400);
+  }
+
   // tear down and rebuild the VRDE/xrdp stack, then replay the RDP handshake
   function reinstallRdp(via: string) {
     emit(`apt: ${via} · purging xrdp + VRDE extension pack`);
