@@ -74,6 +74,22 @@ const CHROME_ICON = {
   entries: [] as string[],
 };
 
+/** Appears on the desktop after `sudo apt install chromium-browser`. */
+const CHROMIUM_ICON = {
+  label: "Chromium",
+  glyph: "🧭",
+  path: "/usr/bin/chromium-browser",
+  entries: [] as string[],
+};
+
+const BROWSER_META = {
+  firefox: { glyph: "🦊", name: "Mozilla Firefox" },
+  chrome: { glyph: "🌐", name: "Google Chrome" },
+  chromium: { glyph: "🧭", name: "Chromium" },
+} as const;
+
+type BrowserApp = keyof typeof BROWSER_META;
+
 export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const conn = guestConn(guest, hostIp);
   const [phase, setPhase] = useState(0); // handshake progress
@@ -88,9 +104,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [openWin, setOpenWin] = useState<string | null>(null);
   const [foxWin, setFoxWin] = useState(false);
-  const [browserApp, setBrowserApp] = useState<"firefox" | "chrome">("firefox");
+  const [browserApp, setBrowserApp] = useState<BrowserApp>("firefox");
   /** null = shortcut not copied yet; "noexec" = copied but not chmod +x; "exec" = launchable */
   const [chromeShortcut, setChromeShortcut] = useState<null | "noexec" | "exec">(null);
+  const [chromiumInstalled, setChromiumInstalled] = useState(false);
+  const [rdpGen, setRdpGen] = useState(0); // bumped when the RDP stack is reinstalled
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
   );
@@ -253,6 +271,18 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }
 
   // ── guest shell: run whatever is on the prompt line ──────────────────────
+  // tear down and rebuild the VRDE/xrdp stack, then replay the RDP handshake
+  function reinstallRdp(via: string) {
+    emit(`apt: ${via} · purging xrdp + VRDE extension pack`);
+    setDone(false);
+    setPhase(0);
+    setRdpGen((g) => g + 1);
+    setTimeout(
+      () => emit("xrdp: VRDE server reinstalled · TLS certificate regenerated · renegotiating handshake"),
+      700,
+    );
+  }
+
   function runCommand() {
     const cmd = typed.trim();
     setTyped("");
@@ -262,6 +292,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     }
     const out: string[] = [`ubuntu@${guest.name}:~$ ${cmd}`];
     const snap = cmd.match(/^sudo\s+snap\s+install\s+(\S+)/);
+    const reinst = cmd.match(/^sudo\s+apt(?:-get)?\s+install\s+--reinstall\s+(?:-y\s+)?(\S+)/);
     const apt = cmd.match(/^sudo\s+apt(?:-get)?\s+install\s+(?:-y\s+)?(\S+)/);
     const cpChrome = /^cp\s+\/usr\/share\/applications\/google-chrome\.desktop\s+~\/Desktop\/?$/.test(cmd);
     const chmodChrome = /^chmod\s+\+x\s+~\/Desktop\/google-chrome\.desktop$/.test(cmd);
@@ -281,12 +312,26 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       }
     } else if (/^ls\s+~?\/?Desktop\/?$/.test(cmd)) {
       out.push(chromeShortcut ? "google-chrome.desktop" : "(empty)");
+    } else if (reinst && /^(xrdp|vrde|rdp|virtualbox)/.test(reinst[1]!)) {
+      out.push(
+        `Reading package lists... Done`,
+        `Reinstallation of ${reinst[1]} ...`,
+        `Setting up ${reinst[1]} (reconfigured) ...`,
+        `# RDP stack rebuilt — session will renegotiate`,
+      );
+      reinstallRdp(`apt install --reinstall ${reinst[1]}`);
     } else if (snap) {
       out.push(`Download snap "${snap[1]}" (4021) from Snap Store`, `${snap[1]} 128.0 from Mozilla✓ installed`);
       emit(`snapd: ${snap[1]} installed in ${guest.name}`);
     } else if (apt) {
       out.push(`Reading package lists... Done`, `Setting up ${apt[1]} ...`, `Processing triggers for desktop-file-utils ...`);
       emit(`dpkg: ${apt[1]} configured in ${guest.name}`);
+      if (/^(chromium|chromium-browser)$/.test(apt[1]!)) {
+        setChromiumInstalled(true);
+        setTrashed((prev) => prev.filter((l) => l !== "Chromium"));
+        out.push("# chromium-browser installed — desktop icon added");
+        emit(`gio: chromium-browser.desktop registered · icon added to desktop`);
+      }
     } else if (cmd === "clear") {
       setTermLines([]);
       return;
@@ -537,9 +582,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   function openIcon(label: string) {
     const icon =
       DESKTOP_ICONS.find((i) => i.label === label) ??
-      (label === "Chrome" ? CHROME_ICON : undefined);
+      (label === "Chrome" ? CHROME_ICON : label === "Chromium" ? CHROMIUM_ICON : undefined);
     if (!icon) return;
     setSelected(label);
+    if (label === "Chromium") {
+      emit(`chromium: launching ${icon.path} · click via ${mouse.bdf}`);
+      setBrowserApp("chromium");
+      setFoxWin(true);
+      setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
+      setTopWin("firefox");
+      setFoxReload((n) => n + 1);
+      setTimeout(() => emit("chromium: process forked · pid 5310 · sandbox helpers ready"), 400);
+      return;
+    }
     if (label === "Chrome") {
       if (chromeShortcut !== "exec") {
         emit("gio: permission denied · ~/Desktop/google-chrome.desktop is not executable");
@@ -926,7 +981,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="text-mint">●</span>
               </div>
               {/* desktop icons — click to select, double click to open, drag to move / drop on Trash */}
-              {(chromeShortcut ? [...DESKTOP_ICONS, CHROME_ICON] : DESKTOP_ICONS)
+              {[...DESKTOP_ICONS, ...(chromiumInstalled ? [CHROMIUM_ICON] : []), ...(chromeShortcut ? [CHROME_ICON] : [])]
                 .filter((i) => !trashed.includes(i.label))
                 .map((icon) => {
                 const p = pos[icon.label] ?? { x: 3, y: 14 };
@@ -1133,9 +1188,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
                     />
                     <span className="ml-1.5 truncate">
-                      {browserApp === "chrome" ? "🌐" : "🦊"}{" "}
+                      {BROWSER_META[browserApp].glyph}{" "}
                       {foxLoading ? "Loading…" : foxResp?.title ?? "New Tab"} —{" "}
-                      {browserApp === "chrome" ? "Google Chrome" : "Mozilla Firefox"}
+                      {BROWSER_META[browserApp].name}
                     </span>
                   </div>
                   {/* navigation toolbar */}
@@ -1425,7 +1480,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 {[
                   { id: "term", label: "Terminal Emulator", open: true },
                   { id: "thunar", label: openWin ? `${openWin} — Thunar` : "Thunar", open: !!openWin },
-                  { id: "firefox", label: browserApp === "chrome" ? "Google Chrome" : "Mozilla Firefox", open: foxWin },
+                  { id: "firefox", label: BROWSER_META[browserApp].name, open: foxWin },
                 ]
                   .filter((w) => w.open)
                   .map((w) => (
@@ -1657,8 +1712,24 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
         {/* status bar */}
         <div className="shrink-0 flex flex-wrap gap-x-3 items-center justify-between px-4 py-2 border-t border-railedge text-[10px] font-mono text-dim">
-          <span>
+          <span className="flex items-center gap-2">
             VRDE {conn.rdpTarget} · {guest.osType} · {done ? "1280×720 @ 32bpp" : "negotiating"}
+            {rdpGen > 0 && <span className="text-mint">· stack rev {rdpGen}</span>}
+            <button
+              type="button"
+              title="sudo apt install --reinstall xrdp — rebuilds the VRDE stack and re-runs the handshake"
+              onClick={() => {
+                if (!done) return;
+                reinstallRdp("viewer: reinstall rdp");
+                setTermLines((l) =>
+                  [...l, "Reinstallation of xrdp ...", "# RDP stack rebuilt — session renegotiating"].slice(-9),
+                );
+              }}
+              disabled={!done}
+              className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 disabled:opacity-40 transition"
+            >
+              ⟳ reinstall rdp
+            </button>
           </span>
           <span>
             ptr {cursor.x},{cursor.y} ·{" "}
