@@ -59,12 +59,17 @@ function Console() {
   const [selectedId, setSelectedId] = useState("vm-1");
   const [view, setView] = useState("Fleet overview");
   const [logs, setLogs] = useState<LogLine[]>(() => [
-    makeLog("ok", "agent 4.2.1 attached to 5 hosts"),
-    makeLog("net", "control plane link established · eu-central"),
+    makeLog("ok", "agent 4.2.1 attached to 5 hosts", "00:00:00"),
+    makeLog("net", "control plane link established · eu-central", "00:00:01"),
   ]);
   const [clock, setClock] = useState("--:--:--");
   const [command, setCommand] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
+  const [files, setFiles] = useState<HostFile[]>(() => [
+    ...seedFiles("vm-1"),
+    ...seedFiles("vm-2").slice(0, 1),
+  ]);
+
 
   useEffect(() => {
     const t = setInterval(() => {
