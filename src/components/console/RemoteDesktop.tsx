@@ -405,9 +405,12 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       drag.label !== "Trash" && bin != null && Math.abs(nx - bin.x) < 7 && Math.abs(ny - bin.y) < 9,
     );
     // firefox window is a drop target — hit-test cursor against its rect
-    if (foxWin && drag.label !== "Firefox") {
-      const fp = wp("firefox");
-      const hit = x >= fp.x && x <= fp.x + 46 && y >= fp.y && y <= fp.y + 42;
+    if (foxWin && ws("firefox") !== "min" && drag.label !== "Firefox") {
+      const maxed = ws("firefox") === "max";
+      const fp = maxed ? { x: 0, y: 4.5 } : wp("firefox");
+      const w = maxed ? 100 : 46;
+      const h = maxed ? 90 : 42;
+      const hit = x >= fp.x && x <= fp.x + w && y >= fp.y && y <= fp.y + h;
       if (hit !== overFox) setOverFox(hit);
     } else if (overFox) {
       setOverFox(false);
