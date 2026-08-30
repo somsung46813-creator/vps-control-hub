@@ -21,10 +21,15 @@ import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 import { Interpreter } from "@/components/console/Interpreter";
 import {
+  guestKey,
   guestSignature,
   interpreterSource,
+  planWithSignature,
+  type BrowserId,
   type ProvisionPlan,
 } from "@/lib/interpreter";
+import { BuildPlanPanel } from "@/components/console/BuildPlanPanel";
+
 
 
 import {
@@ -87,6 +92,8 @@ function Console() {
   const [clock, setClock] = useState("--:--:--");
   const [command, setCommand] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
+  const [guestBrowsers, setGuestBrowsers] = useState<Record<string, BrowserId[]>>({});
+
   const [files, setFiles] = useState<HostFile[]>(() => [
     ...seedFiles("vm-1"),
     ...seedFiles("vm-2").slice(0, 1),
@@ -379,30 +386,44 @@ function Console() {
   }
 
   function provisionFromPlan(plan: ProvisionPlan) {
-    const tpl = GUEST_TEMPLATES[plan.templateIndex]!;
+    const tpl = GUEST_TEMPLATES[plan.templateIndex] ?? GUEST_TEMPLATES[0]!;
     const guest = makeGuest(plan.guestName, selected.id, tpl, stamp());
     const src = interpreterSource(hypervisor.packageName, hypervisor.version);
-    if (src.armed) guest.signature = guestSignature(guest, src);
+    // every guest gets its own unique base44 key from the interpreter
+    guest.signature = guestKey(
+      { name: guest.name, spec: `${tpl.osType}|${tpl.memMb}M|${tpl.diskGb}G` },
+      src,
+      guest.id,
+    );
     guest.autostart = plan.autostart;
+    const signed = planWithSignature(plan, src, guest.signature);
     setGuests((prev) => [guest, ...prev]);
+    setGuestBrowsers((prev) => ({ ...prev, [guest.id]: plan.browsers }));
+    runPlanSteps(signed, guest.id, tpl.diskGb);
+  }
+
+  function runPlanSteps(plan: ProvisionPlan, guestId: string, diskGb?: number) {
     plan.steps.forEach((line, i) => {
       setTimeout(() => push(makeLog("net", line)), i * 220);
     });
     setTimeout(
       () => {
         setGuests((prev) =>
-          prev.map((g) => (g.id === guest.id ? { ...g, status: "powered off" } : g)),
+          prev.map((g) => (g.id === guestId ? { ...g, status: "powered off" } : g)),
         );
         push(
           makeLog(
             "ok",
-            `spectrum interpreter provisioned ${plan.guestName} · ${tpl.diskGb} GB vdi · base44 ${guest.signature ?? plan.digest}`,
+            `spectrum interpreter provisioned ${plan.guestName}${
+              diskGb ? ` · ${diskGb} GB vdi` : ""
+            } · base44 ${plan.digest}`,
           ),
         );
       },
       plan.steps.length * 220 + 600,
     );
   }
+
 
 
   function powerGuest(guest: Guest, action: "start" | "stop" | "pause") {
@@ -571,8 +592,14 @@ function Console() {
               guests={hostGuests}
               onStampGuest={stampGuest}
               onProvision={provisionFromPlan}
-
             />
+            <BuildPlanPanel
+              hypervisor={hypervisor}
+              guests={hostGuests}
+              guestBrowsers={guestBrowsers}
+              onRun={(guest, plan) => runPlanSteps(plan, guest.id)}
+            />
+
             <LogStream
               lines={logs}
               clock={clock}

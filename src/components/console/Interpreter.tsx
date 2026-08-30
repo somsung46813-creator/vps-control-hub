@@ -3,12 +3,15 @@ import {
   BASE44_ID,
   BASE44_SEED,
   base44Decode,
+  browserLabel,
   guestDescriptor,
   guestSignature,
   interpret,
   interpreterSource,
   matchesComparator,
   planFromText,
+  provisionSteps,
+  type BrowserId,
   type Interpretation,
   type ProvisionPlan,
 } from "@/lib/interpreter";
@@ -36,22 +39,37 @@ export function Interpreter({
   const [decodeIn, setDecodeIn] = useState("");
   const [decodeOut, setDecodeOut] = useState<string | null>(null);
   const [showSteps, setShowSteps] = useState(false);
+  const [browserOverride, setBrowserOverride] = useState<BrowserId[] | null>(null);
 
   const src = useMemo(
     () => interpreterSource(hypervisor?.packageName ?? null, hypervisor?.version ?? null),
     [hypervisor?.packageName, hypervisor?.version],
   );
   const live = useMemo(() => interpret(input), [input]);
-  const plan = useMemo(() => planFromText(input, src), [input, src]);
+  const plan = useMemo(() => {
+    const base = planFromText(input, src);
+    if (!browserOverride) return base;
+    const next: ProvisionPlan = { ...base, browsers: browserOverride };
+    next.steps = provisionSteps(next, src);
+    return next;
+  }, [input, src, browserOverride]);
   const filtered = useMemo(
     () => history.filter((h) => matchesComparator(h, filter)),
     [history, filter],
   );
 
+  function toggleBrowser(b: BrowserId) {
+    const current = plan.browsers;
+    setBrowserOverride(
+      current.includes(b) ? current.filter((x) => x !== b) : [...current, b],
+    );
+  }
+
   function runProvision() {
     onProvision?.(plan);
     setHistory((prev) => [interpret(input), ...prev].slice(0, 8));
   }
+
 
 
   function commit() {
@@ -144,9 +162,30 @@ export function Interpreter({
             </p>
             <p className="text-[10px] text-dim">
               desktop {plan.desktop ? "xfce4 + lightdm" : "headless"} · autostart{" "}
-              {plan.autostart ? "on" : "off"} · digest{" "}
+              {plan.autostart ? "on" : "off"} · key{" "}
               <span className="text-lantern">{plan.digest}</span>
             </p>
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <span className="text-[10px] text-dim">browsers</span>
+              {(["firefox", "chromium", "google-chrome"] as BrowserId[]).map((b) => {
+                const on = plan.browsers.includes(b);
+                return (
+                  <button
+                    key={b}
+                    onClick={() => toggleBrowser(b)}
+                    aria-pressed={on}
+                    className={`px-1.5 py-0.5 rounded text-[10px] ring-1 transition ${
+                      on
+                        ? "bg-mint/15 text-mint ring-mint/40"
+                        : "text-dim/70 ring-railedge hover:text-ink"
+                    }`}
+                  >
+                    {browserLabel(b)}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={runProvision}
