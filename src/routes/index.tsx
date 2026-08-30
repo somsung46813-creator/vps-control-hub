@@ -20,7 +20,12 @@ import {
 import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 import { Interpreter } from "@/components/console/Interpreter";
-import { guestSignature, interpreterSource } from "@/lib/interpreter";
+import {
+  guestSignature,
+  interpreterSource,
+  type ProvisionPlan,
+} from "@/lib/interpreter";
+
 
 import {
   downloadFile,
