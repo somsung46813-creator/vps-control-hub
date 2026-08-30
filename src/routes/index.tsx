@@ -340,6 +340,18 @@ function Console() {
     [guests, selected.id],
   );
 
+  function stampGuest(guest: Guest, signature: string) {
+    setGuests((prev) =>
+      prev.map((g) => (g.id === guest.id ? { ...g, signature } : g)),
+    );
+    push(
+      makeLog(
+        "net",
+        `VBoxManage setextradata ${guest.name} spectrum/base44 ${signature}`,
+      ),
+    );
+  }
+
   function createGuest(name: string, templateIndex: number) {
     const tpl = GUEST_TEMPLATES[templateIndex]!;
     const guest = makeGuest(name, selected.id, tpl, stamp());
@@ -513,7 +525,12 @@ function Console() {
 
           <div className="flex flex-col gap-3">
             <DetailPanel vm={selected} onAction={runAction} />
-            <Interpreter onEvent={(line) => push(makeLog("ok", line))} />
+            <Interpreter
+              onEvent={(line) => push(makeLog("ok", line))}
+              hypervisor={hypervisor}
+              guests={hostGuests}
+              onStampGuest={stampGuest}
+            />
             <LogStream
               lines={logs}
               clock={clock}
