@@ -7,6 +7,7 @@ import { DetailPanel } from "@/components/console/DetailPanel";
 import { LogStream } from "@/components/console/LogStream";
 import { FileServer } from "@/components/console/FileServer";
 import { GuestManager } from "@/components/console/GuestManager";
+import { GuestConsole } from "@/components/console/GuestConsole";
 import {
   GUEST_TEMPLATES,
   isHypervisorPackage,
@@ -329,6 +330,11 @@ function Console() {
     }
   }
 
+  function connectGuest(guest: Guest) {
+    setSessionGuestId(guest.id);
+    push(makeLog("net", `VBoxManage controlvm ${guest.name} vrde on · console session attached`));
+  }
+
   function deleteGuest(guest: Guest) {
     setGuests((prev) => prev.filter((g) => g.id !== guest.id));
     push(makeLog("warn", `VBoxManage unregistervm ${guest.name} --delete`));
@@ -416,6 +422,7 @@ function Console() {
               onCreate={createGuest}
               onPower={powerGuest}
               onDelete={deleteGuest}
+              onConnect={connectGuest}
             />
 
           </div>
