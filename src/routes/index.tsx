@@ -362,6 +362,13 @@ function Console() {
     push(makeLog("net", `VBoxManage controlvm ${guest.name} vrde on · console session attached`));
   }
 
+  function openDesktop(guest: Guest) {
+    setRdpGuestId(guest.id);
+    const hostIp = vms.find((v) => v.id === guest.hostId)?.ip ?? selected.ip;
+    const conn = guestConn(guest, hostIp);
+    push(makeLog("ok", `VRDE viewer launching · rdp://${conn.rdpTarget} (${guest.name})`));
+  }
+
   function deleteGuest(guest: Guest) {
     setGuests((prev) => prev.filter((g) => g.id !== guest.id));
     push(makeLog("warn", `VBoxManage unregistervm ${guest.name} --delete`));
