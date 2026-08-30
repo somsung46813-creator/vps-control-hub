@@ -78,6 +78,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     term: { x: 26, y: 24 },
   });
   const [topWin, setTopWin] = useState<string>("thunar");
+  const [focusFollow, setFocusFollow] = useState(true);
+  const [termSel, setTermSel] = useState<string | null>(null);
+
   const [drag, setDrag] = useState<{
     kind: "icon" | "window";
     label: string;
