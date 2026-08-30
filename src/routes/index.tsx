@@ -368,6 +368,11 @@ function Console() {
             : v,
         ),
       );
+      if (hostLightdm.includes(guest.hostId)) {
+        setTimeout(() => {
+          push(makeLog("ok", `lightdm (host): seat0 greeter up · launching session for ${guest.name} on top of host display manager`));
+        }, 900);
+      }
       if (guest.autostart) {
         const hostIp = vms.find((v) => v.id === guest.hostId)?.ip ?? "0.0.0.0";
         setTimeout(() => {
