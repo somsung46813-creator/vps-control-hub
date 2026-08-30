@@ -137,6 +137,12 @@ export function GuestManager({
                   <p className="text-ink truncate">{g.name}</p>
                   <p className="text-[10px] text-dim truncate">
                     {g.osType} · {formatMem(g.memMb)} · {g.diskGb} GB vdi · {g.createdAt}
+                    {g.signature ? (
+                      <>
+                        {" · "}
+                        <span className="text-lantern">b44 {g.signature}</span>
+                      </>
+                    ) : null}
                   </p>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded ring-1 ${statusTone[g.status]}`}>
