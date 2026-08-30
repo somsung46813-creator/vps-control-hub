@@ -76,6 +76,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
   const [selected, setSelected] = useState<string | null>(null);
   const [openWin, setOpenWin] = useState<string | null>(null);
+  const [foxWin, setFoxWin] = useState(false);
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
   );
@@ -352,6 +353,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     const icon = DESKTOP_ICONS.find((i) => i.label === label);
     if (!icon) return;
     setSelected(label);
+    if (label === "Firefox") {
+      emit(`firefox: launching ${icon.path} · pointer click via ${mouse.bdf}`);
+      setFoxWin(true);
+      setTopWin("firefox");
+      setTimeout(() => emit("firefox: process forked · pid 4821 · GPU compositing enabled"), 500);
+      setTimeout(() => emit("firefox: session restored · https://start.mozilla.org rendered"), 1100);
+      return;
+    }
     setOpenWin(label);
     emit(`thunar: open ${icon.path} · pointer click via ${mouse.bdf}`);
   }
