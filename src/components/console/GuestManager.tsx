@@ -6,6 +6,7 @@ import {
   type Hypervisor,
 } from "@/lib/guests";
 import type { Vm } from "@/lib/fleet";
+import type { ProvisionPlan } from "@/lib/interpreter";
 
 type Props = {
   vm: Vm;
@@ -19,6 +20,12 @@ type Props = {
   onConnect: (guest: Guest) => void;
   onOpenDesktop: (guest: Guest) => void;
   onToggleAutostart: (guest: Guest) => void;
+  /** build plan per guest id, derived from the Spectrum Interpreter */
+  plans?: Record<string, ProvisionPlan>;
+  hostRdp?: boolean;
+  hostPackages?: string[];
+  onRebuild?: (guest: Guest) => void;
+  onReprovision?: (guest: Guest) => void;
 };
 
 const statusTone: Record<Guest["status"], string> = {
@@ -40,8 +47,14 @@ export function GuestManager({
   onConnect,
   onOpenDesktop,
   onToggleAutostart,
+  plans = {},
+  hostRdp = false,
+  hostPackages = [],
+  onRebuild,
+  onReprovision,
 }: Props) {
   const [name, setName] = useState("");
+  const [planId, setPlanId] = useState<string | null>(null);
   const [tpl, setTpl] = useState(0);
   const ready = hypervisor.installedOn.includes(vm.id);
 
@@ -57,6 +70,11 @@ export function GuestManager({
           </p>
         </div>
         <span className="flex items-center gap-1.5">
+          {hostRdp && (
+            <span className="text-[10px] px-2 py-1 rounded ring-1 bg-mint/10 text-mint ring-mint/30">
+              xrdp :3389
+            </span>
+          )}
           {hostLightdm ? (
             <span className="text-[10px] px-2 py-1 rounded ring-1 bg-lantern/10 text-lantern ring-lantern/30">
               host lightdm active
@@ -132,7 +150,8 @@ export function GuestManager({
               <p className="px-4 py-5 text-[11px] text-dim">no guest machines registered</p>
             )}
             {guests.map((g) => (
-              <div key={g.id} className="px-4 py-2.5 flex items-center gap-2 text-xs">
+              <div key={g.id} className="px-4 py-2.5 text-xs">
+              <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-ink truncate">{g.name}</p>
                   <p className="text-[10px] text-dim truncate">
@@ -197,7 +216,56 @@ export function GuestManager({
                   >
                     rm
                   </button>
+                  <button
+                    onClick={() => setPlanId(planId === g.id ? null : g.id)}
+                    className="px-2 py-1 rounded ring-1 ring-railedge text-dim hover:text-lantern transition"
+                  >
+                    {planId === g.id ? "hide plan" : "plan"}
+                  </button>
                 </span>
+              </div>
+
+              {planId === g.id && (
+                <div className="mt-2 grid grid-cols-1 md:grid-cols-[minmax(0,15rem)_1fr] gap-2">
+                  <div className="rounded bg-void ring-1 ring-railedge p-2.5 space-y-2">
+                    <p className="text-[10px] text-dim uppercase tracking-wide">signed key</p>
+                    <p className="text-[11px] text-lantern break-all font-mono">
+                      {plans[g.id]?.digest ?? g.signature ?? "unsigned"}
+                    </p>
+                    <p className="text-[10px] text-dim">
+                      {g.osType} · {formatMem(g.memMb)} · {g.diskGb} GB · autostart{" "}
+                      {g.autostart ? "on" : "off"}
+                    </p>
+                    <p className="text-[10px] text-dim">
+                      host layer:{" "}
+                      <span className="text-mint">
+                        {hostPackages.length ? hostPackages.join(" ") : "not built"}
+                      </span>
+                    </p>
+                    <div className="flex gap-1.5 pt-1">
+                      <button
+                        onClick={() => onRebuild?.(g)}
+                        className="px-2 py-1 rounded text-[10px] bg-mint/10 text-mint ring-1 ring-mint/30 hover:bg-mint/20 transition"
+                      >
+                        rebuild
+                      </button>
+                      <button
+                        onClick={() => onReprovision?.(g)}
+                        className="px-2 py-1 rounded text-[10px] bg-lantern/10 text-lantern ring-1 ring-lantern/30 hover:bg-lantern/20 transition"
+                      >
+                        re-provision
+                      </button>
+                    </div>
+                  </div>
+                  <ul className="rounded bg-void ring-1 ring-railedge p-2.5 space-y-0.5 max-h-44 overflow-auto">
+                    {(plans[g.id]?.steps ?? []).map((step, i) => (
+                      <li key={i} className="text-[10px] text-dim break-all">
+                        <span className="text-neon">$</span> {step}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               </div>
             ))}
           </div>
