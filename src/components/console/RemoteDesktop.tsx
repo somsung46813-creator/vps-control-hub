@@ -83,6 +83,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [winPos, setWinPos] = useState<Record<string, { x: number; y: number }>>({
     thunar: { x: 56, y: 18 },
     term: { x: 26, y: 24 },
+    firefox: { x: 20, y: 12 },
   });
   const [topWin, setTopWin] = useState<string>("thunar");
   const [focusFollow, setFocusFollow] = useState(true);
@@ -661,6 +662,53 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     {openWin === "Trash" && trashed.length === 0 && (
                       <p className="text-[#8fa8c0]">Trash is empty — drag an icon onto it</p>
                     )}
+                  </div>
+                </div>
+              )}
+              {/* firefox browser window */}
+              {foxWin && (
+                <div
+                  style={{ left: `${wp("firefox").x}%`, top: `${wp("firefox").y}%` }}
+                  onMouseDown={() => setTopWin("firefox")}
+                  onMouseEnter={() => hoverFocus("firefox")}
+                  className={`absolute w-[46%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px] ${
+                    topWin === "firefox" ? "z-40" : "z-30"
+                  } ${drag?.kind === "window" && drag.label === "firefox" ? "opacity-90" : ""}`}
+                >
+                  <div
+                    onMouseDown={(e) => startWindowDrag(e, "firefox")}
+                    className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
+                      mouseLive ? "cursor-none" : "cursor-default"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Close Firefox"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFoxWin(false);
+                        emit("firefox: window closed · process exited code 0");
+                      }}
+                      className="h-2 w-2 rounded-full bg-destructive/80 hover:bg-destructive"
+                    />
+                    <span className="h-2 w-2 rounded-full bg-amber/70" />
+                    <span className="h-2 w-2 rounded-full bg-mint/70" />
+                    <span className="ml-1.5 truncate">🦊 New Tab — Mozilla Firefox</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[#3d5a7a]/60">
+                    <span className="text-[#8fa8c0]">←</span>
+                    <span className="text-[#8fa8c0]">→</span>
+                    <span className="text-[#8fa8c0]">⟳</span>
+                    <span className="flex-1 truncate rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff]">
+                      https://start.mozilla.org
+                    </span>
+                  </div>
+                  <div className="p-3 leading-5 text-[#c8d6e5]">
+                    <p className="text-[#7ec8ff] text-[11px] font-semibold">Firefox 128.0 (snap)</p>
+                    <p className="text-[#8fa8c0]">
+                      Session restored on {guest.name} · GPU compositing active
+                    </p>
+                    <p className="mt-1">🔍 Search with Google or enter address</p>
                   </div>
                 </div>
               )}
