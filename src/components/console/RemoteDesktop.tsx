@@ -1146,6 +1146,45 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     <div className="p-0 leading-5 text-[#c8d6e5] overflow-y-auto min-h-[220px]">
                       {foxLoading || !foxResp ? (
                         <p className="p-3 text-[#8fa8c0]">Connecting to {normalizeUrl(foxTab)}…</p>
+                      ) : foxError ? (
+                        <div className="p-3 space-y-1.5">
+                          <p className="text-amber text-[11px] font-semibold">
+                            ⚠ Unable to connect — {normalizeUrl(foxTab)}
+                          </p>
+                          <p className="text-[#c8d6e5]">
+                            exception: <span className="text-amber">{foxError.message}</span>
+                          </p>
+                          <p className="text-[#8fa8c0] uppercase tracking-wider text-[9px] pt-1">
+                            resolutions
+                          </p>
+                          <ul className="space-y-0.5">
+                            {foxError.resolutions.map((r) => (
+                              <li key={r} className="text-[#8fa8c0]">· {r}</li>
+                            ))}
+                          </ul>
+                          <div className="flex gap-1.5 pt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setFoxReload((n) => n + 1)}
+                              className="px-2 py-0.5 rounded ring-1 ring-mint/50 text-mint hover:bg-mint/10"
+                            >
+                              Try again
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                goFox(
+                                  `https://duckduckgo.com/?q=${encodeURIComponent(
+                                    new URL(normalizeUrl(foxTab)).searchParams.get("q") ?? "ubuntu xfce",
+                                  )}`,
+                                )
+                              }
+                              className="px-2 py-0.5 rounded ring-1 ring-[#3d5a7a] text-[#8fa8c0] hover:text-[#7ec8ff]"
+                            >
+                              Search DuckDuckGo instead
+                            </button>
+                          </div>
+                        </div>
                       ) : foxHtml ? (
                         <iframe
                           title={foxResp.title}
