@@ -194,6 +194,94 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     emit(`cliprdr: channel mode ${next.id}`);
   }
 
+  // ── guest shell: run whatever is on the prompt line ──────────────────────
+  function runCommand() {
+    const cmd = typed.trim();
+    setTyped("");
+    if (!cmd) {
+      setTermLines((l) => [...l, `ubuntu@${guest.name}:~$`].slice(-9));
+      return;
+    }
+    const out: string[] = [`ubuntu@${guest.name}:~$ ${cmd}`];
+    const snap = cmd.match(/^sudo\s+snap\s+install\s+(\S+)/);
+    const apt = cmd.match(/^sudo\s+apt(?:-get)?\s+install\s+(?:-y\s+)?(\S+)/);
+    if (snap) {
+      out.push(`Download snap "${snap[1]}" (4021) from Snap Store`, `${snap[1]} 128.0 from Mozilla✓ installed`);
+      emit(`snapd: ${snap[1]} installed in ${guest.name}`);
+    } else if (apt) {
+      out.push(`Reading package lists... Done`, `Setting up ${apt[1]} ...`, `Processing triggers for desktop-file-utils ...`);
+      emit(`dpkg: ${apt[1]} configured in ${guest.name}`);
+    } else if (cmd === "clear") {
+      setTermLines([]);
+      return;
+    } else if (cmd.startsWith("echo ")) {
+      out.push(cmd.slice(5));
+    } else if (cmd === "pwd") {
+      out.push("/home/ubuntu");
+    } else if (cmd === "ls") {
+      out.push("Desktop  Documents  Downloads  Pictures  .xinitrc");
+    } else {
+      out.push(`${cmd.split(" ")[0]}: command executed`);
+    }
+    setTermLines((l) => [...l, ...out].slice(-9));
+  }
+
+  // ── cut / copy from the remote desktop into the cliprdr channel ──────────
+  function clipPayload(label: string | null) {
+    if (label) return DESKTOP_ICONS.find((i) => i.label === label)?.path ?? label;
+    return typed || clipGuest;
+  }
+
+  async function copyToChannel(label: string | null, cut = false) {
+    const payload = clipPayload(label);
+    if (!payload) return;
+    setClipGuest(payload);
+    const bytes = new Blob([payload]).size;
+    if (guestToHost) {
+      try {
+        await navigator.clipboard.writeText(payload);
+      } catch {
+        /* host clipboard may be permission-gated; channel still holds the data */
+      }
+    }
+    if (cut && label) {
+      setCutIcon(label);
+      emit(`cliprdr: cut · ${payload} (${bytes} B) staged on channel`);
+    } else {
+      emit(`cliprdr: copy · ${payload} (${bytes} B) → clipboard channel${guestToHost ? " + host" : ""}`);
+    }
+    setClipXfer(`${cut ? "cut" : "copy"} · ${bytes} B · UTF8_STRING`);
+    setMenu(null);
+  }
+
+  function pasteToTerminal() {
+    const payload = clipGuest;
+    if (!payload) return;
+    setTyped((t) => (t + payload).slice(-48));
+    setTopWin("term");
+    setClipXfer(`paste → terminal · ${new Blob([payload]).size} B`);
+    emit(`cliprdr: paste · ${payload} → ubuntu@${guest.name} prompt`);
+    if (cutIcon) {
+      setTrashed((prev) => (prev.includes(cutIcon) ? prev : [...prev, cutIcon]));
+      setCutIcon(null);
+    }
+    setMenu(null);
+  }
+
+  // desktop-side cut/copy shortcuts (Ctrl+C / Ctrl+X) while the grab is held
+  useEffect(() => {
+    if (!done || !keyboardLive) return;
+    function onKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "c") void copyToChannel(selected);
+      else if (e.key === "x") void copyToChannel(selected, true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+
+
   function toggleGrab() {
     if (grabbed) {
       emit("input grab released → host desktop (mouse + kbd local)");
