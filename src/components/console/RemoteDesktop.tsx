@@ -176,11 +176,44 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     const el = frameRef.current;
     if (!el || !mouseLive) return;
     const r = el.getBoundingClientRect();
-    setCursor({
-      x: Math.round(((e.clientX - r.left) / r.width) * 100),
-      y: Math.round(((e.clientY - r.top) / r.height) * 100),
-    });
+    const x = ((e.clientX - r.left) / r.width) * 100;
+    const y = ((e.clientY - r.top) / r.height) * 100;
+    setCursor({ x: Math.round(x), y: Math.round(y) });
+
+    if (!drag) return;
+    const nx = Math.min(94, Math.max(4, x - drag.dx));
+    const ny = Math.min(90, Math.max(12, y - drag.dy));
+    setPos((prev) => ({ ...prev, [drag.label]: { x: nx, y: ny } }));
+    if (!drag.moved) {
+      dragMovedRef.current = true;
+      setDrag({ ...drag, moved: true });
+      emit(`xdnd: drag begin · ${drag.label} (motion via ${mouse.bdf})`);
+    }
+    const bin = pos["Trash"];
+    setOverTrash(
+      drag.label !== "Trash" && bin != null && Math.abs(nx - bin.x) < 7 && Math.abs(ny - bin.y) < 9,
+    );
   }
+
+  function endDrag() {
+    if (!drag) return;
+    const label = drag.label;
+    if (drag.moved && overTrash && label !== "Trash") {
+      setTrashed((prev) => [...prev, label]);
+      emit(`gio trash "${DESKTOP_ICONS.find((i) => i.label === label)?.path}" · ${label} → Trash`);
+      setSelected(null);
+    } else if (drag.moved) {
+      const p = pos[label];
+      emit(`xdnd: drop ${label} @ ${Math.round(p?.x ?? 0)},${Math.round(p?.y ?? 0)} · icon position saved`);
+    }
+    setDrag(null);
+    setOverTrash(false);
+    // let the click that follows mouseup know it was a drag, not a selection
+    setTimeout(() => {
+      dragMovedRef.current = false;
+    }, 0);
+  }
+
 
 
   return (
