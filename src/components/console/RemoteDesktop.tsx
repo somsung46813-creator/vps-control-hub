@@ -90,12 +90,28 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }, [done, keyboardLive]);
 
   function toggleGrab() {
-    emit(
-      grabbed
-        ? "input grab released → host desktop (mouse + kbd local)"
-        : `input grabbed → ${guest.name} (mouse ${mouse.bdf} + kbd ${keyboard.bdf} captured · Esc releases)`,
+    if (grabbed) {
+      emit("input grab released → host desktop (mouse + kbd local)");
+      setGrabbed(false);
+      return;
+    }
+    // grabbing is meaningless unless the HID endpoints are bound on the bus —
+    // rebind any detached mouse/keyboard so the grab actually reaches the guest
+    const rebind = devices.filter(
+      (d) => (d.cls === "mouse" || d.cls === "keyboard") && !d.attached,
     );
-    setGrabbed(!grabbed);
+    if (rebind.length) {
+      setDevices((prev) =>
+        prev.map((x) =>
+          x.cls === "mouse" || x.cls === "keyboard" ? { ...x, attached: true } : x,
+        ),
+      );
+      for (const d of rebind) emit(attachLine({ ...d, attached: true }, guest));
+    }
+    emit(
+      `input grabbed → ${guest.name} (mouse ${mouse.bdf} + kbd ${keyboard.bdf} captured · Esc releases)`,
+    );
+    setGrabbed(true);
   }
 
   function toggleDevice(d: IoDevice) {
