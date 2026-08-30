@@ -97,6 +97,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     moved: boolean;
   } | null>(null);
   const [overTrash, setOverTrash] = useState(false);
+  const [overFox, setOverFox] = useState(false);
+  const [foxTab, setFoxTab] = useState("https://start.mozilla.org");
 
   const [trashed, setTrashed] = useState<string[]>([]);
   const dragMovedRef = useRef(false);
