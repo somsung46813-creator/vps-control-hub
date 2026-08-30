@@ -1040,17 +1040,42 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
         </div>
 
         {/* I/O bus — bus:device.function passthrough */}
-        <aside className="border-t lg:border-t-0 lg:border-l border-railedge bg-void/40 flex flex-col">
-          <div className="px-3 py-2 border-b border-railedge">
-            <p className="text-[10px] font-mono text-dim uppercase tracking-wider">I/O bus · bdf passthrough</p>
-            <p className="text-[9px] font-mono text-dim/70 mt-0.5">
-              {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound ·{" "}
-              <span className={grabbed ? "text-neon" : "text-amber"}>
-                hid grab {grabbed ? "guest" : "local"}
-              </span>
-            </p>
+        <aside className="border-t md:border-t-0 md:border-l border-railedge bg-void/40 flex flex-col min-h-0 md:max-h-full">
+          <div className="shrink-0 flex items-start gap-2 px-2 py-2 border-b border-railedge">
+            {busOpen && (
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-mono text-dim uppercase tracking-wider truncate">I/O bus · bdf passthrough</p>
+                <p className="text-[9px] font-mono text-dim/70 mt-0.5 truncate">
+                  {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound ·{" "}
+                  <span className={grabbed ? "text-neon" : "text-amber"}>
+                    hid grab {grabbed ? "guest" : "local"}
+                  </span>
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setBusOpen((v) => !v)}
+              aria-expanded={busOpen}
+              title={busOpen ? "minimize I/O bus panel" : "expand I/O bus panel"}
+              className="shrink-0 text-[10px] font-mono px-1.5 py-1 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 transition"
+            >
+              {busOpen ? "»" : "«"}
+            </button>
           </div>
-          <div className="flex-1 overflow-y-auto divide-y divide-railedge/60">
+          {!busOpen ? (
+            <button
+              type="button"
+              onClick={() => setBusOpen(true)}
+              className="flex-1 min-h-[3rem] w-full flex items-center justify-center text-[9px] font-mono text-dim hover:text-neon transition"
+            >
+              <span className="md:[writing-mode:vertical-rl] md:rotate-180">
+                bdf {devices.filter((d) => d.attached).length}/{devices.length} · {grabbed ? "grab guest" : "grab local"}
+              </span>
+            </button>
+          ) : (
+          <>
+          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-railedge/60">
             {devices.map((d) => (
               <button
                 key={d.id}
