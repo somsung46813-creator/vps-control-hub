@@ -928,6 +928,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     topWin === "thunar" ? "z-40" : "z-30"
                   } ${drag?.kind === "window" && drag.label === "thunar" ? "opacity-90" : ""}`}
                 >
+                  <ResizeGrips label="thunar" />
+
                   <div
                     onMouseDown={(e) => startWindowDrag(e, "thunar")}
                     onDoubleClick={(e) => {
