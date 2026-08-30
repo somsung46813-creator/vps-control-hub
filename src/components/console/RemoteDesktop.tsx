@@ -74,6 +74,22 @@ const CHROME_ICON = {
   entries: [] as string[],
 };
 
+/** Appears on the desktop after `sudo apt install chromium-browser`. */
+const CHROMIUM_ICON = {
+  label: "Chromium",
+  glyph: "🧭",
+  path: "/usr/bin/chromium-browser",
+  entries: [] as string[],
+};
+
+const BROWSER_META = {
+  firefox: { glyph: "🦊", name: "Mozilla Firefox" },
+  chrome: { glyph: "🌐", name: "Google Chrome" },
+  chromium: { glyph: "🧭", name: "Chromium" },
+} as const;
+
+type BrowserApp = keyof typeof BROWSER_META;
+
 export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const conn = guestConn(guest, hostIp);
   const [phase, setPhase] = useState(0); // handshake progress
