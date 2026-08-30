@@ -145,6 +145,48 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [done, keyboardLive]);
 
+  // cliprdr — client clipboard streamed into the guest on paste (Ctrl/Cmd+V)
+  const hostToGuest = clipMode === "bidirectional" || clipMode === "host-to-guest";
+  const guestToHost = clipMode === "bidirectional" || clipMode === "guest-to-host";
+
+  useEffect(() => {
+    if (!done || !grabbed || !hostToGuest) return;
+    function onPaste(e: ClipboardEvent) {
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (!text) return;
+      e.preventDefault();
+      const flat = text.replace(/\s+/g, " ").trim();
+      setTyped((t) => (t + flat).slice(-48));
+      setClipGuest(flat);
+      setClipXfer(`host → guest · ${new Blob([text]).size} B · CF_UNICODETEXT`);
+      emit(
+        `cliprdr: format data response · ${new Blob([text]).size} bytes CF_UNICODETEXT → ${guest.name}`,
+      );
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [done, grabbed, hostToGuest, emit, guest.name]);
+
+  async function copyFromGuest() {
+    const payload = typed || clipGuest;
+    if (!payload || !guestToHost) return;
+    try {
+      await navigator.clipboard.writeText(payload);
+      setClipXfer(`guest → host · ${new Blob([payload]).size} B · UTF8_STRING`);
+      emit(`cliprdr: format list · UTF8_STRING ${new Blob([payload]).size} bytes → host clipboard`);
+    } catch {
+      setClipXfer("guest → host · blocked by browser permission");
+      emit("cliprdr: host clipboard write denied — permission");
+    }
+  }
+
+  function cycleClipMode() {
+    const i = CLIP_MODES.findIndex((m) => m.id === clipMode);
+    const next = CLIP_MODES[(i + 1) % CLIP_MODES.length]!;
+    setClipMode(next.id);
+    emit(`cliprdr: channel mode ${next.id}`);
+  }
+
   function toggleGrab() {
     if (grabbed) {
       emit("input grab released → host desktop (mouse + kbd local)");
