@@ -1108,7 +1108,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       onClick={(e) => {
                         e.stopPropagation();
                         setFoxWin(false);
-                        emit("firefox: window closed · process exited code 0");
+                        emit(`${browserApp}: window closed · process exited code 0`);
                       }}
                       className="h-2 w-2 rounded-full bg-destructive/80 hover:bg-destructive"
                     />
