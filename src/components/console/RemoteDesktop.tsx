@@ -136,14 +136,17 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     if (!done || !keyboardLive) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") return;
+      // let the browser deliver cut/copy/paste events to the cliprdr handlers
+      if (e.ctrlKey || e.metaKey) return;
       e.preventDefault();
       if (e.key === "Backspace") setTyped((t) => t.slice(0, -1));
-      else if (e.key === "Enter") setTyped("");
+      else if (e.key === "Enter") runCommand();
       else if (e.key.length === 1) setTyped((t) => (t + e.key).slice(-48));
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [done, keyboardLive]);
+  });
+
 
   // cliprdr — client clipboard streamed into the guest on paste (Ctrl/Cmd+V)
   const hostToGuest = clipMode === "bidirectional" || clipMode === "host-to-guest";
