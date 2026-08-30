@@ -20,6 +20,7 @@ import {
 import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 import { Interpreter } from "@/components/console/Interpreter";
+import { guestSignature, interpreterSource } from "@/lib/interpreter";
 
 import {
   downloadFile,
@@ -340,10 +341,29 @@ function Console() {
     [guests, selected.id],
   );
 
+  function stampGuest(guest: Guest, signature: string) {
+    setGuests((prev) =>
+      prev.map((g) => (g.id === guest.id ? { ...g, signature } : g)),
+    );
+    push(
+      makeLog(
+        "net",
+        `VBoxManage setextradata ${guest.name} spectrum/base44 ${signature}`,
+      ),
+    );
+  }
+
   function createGuest(name: string, templateIndex: number) {
     const tpl = GUEST_TEMPLATES[templateIndex]!;
     const guest = makeGuest(name, selected.id, tpl, stamp());
+    const src = interpreterSource(hypervisor.packageName, hypervisor.version);
+    if (src.armed) guest.signature = guestSignature(guest, src);
     setGuests((prev) => [guest, ...prev]);
+    if (guest.signature) {
+      push(
+        makeLog("ok", `spectrum interpreter signed ${name} · base44 ${guest.signature}`),
+      );
+    }
     push(makeLog("net", `VBoxManage createvm --name ${name} --ostype ${tpl.osType} --register`));
     setTimeout(() => {
       setGuests((prev) =>
@@ -513,7 +533,12 @@ function Console() {
 
           <div className="flex flex-col gap-3">
             <DetailPanel vm={selected} onAction={runAction} />
-            <Interpreter onEvent={(line) => push(makeLog("ok", line))} />
+            <Interpreter
+              onEvent={(line) => push(makeLog("ok", line))}
+              hypervisor={hypervisor}
+              guests={hostGuests}
+              onStampGuest={stampGuest}
+            />
             <LogStream
               lines={logs}
               clock={clock}

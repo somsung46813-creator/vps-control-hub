@@ -11,6 +11,8 @@ export type Guest = {
   createdAt: string;
   /** When true, the guest boots straight into graphical.target (desktop autostart). */
   autostart: boolean;
+  /** Base44 signature stamped by the Spectrum Interpreter (sourced from the hypervisor .deb). */
+  signature?: string;
 };
 
 export type Hypervisor = {

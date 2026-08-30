@@ -3,22 +3,34 @@ import {
   BASE44_ID,
   BASE44_SEED,
   base44Decode,
+  guestDescriptor,
+  guestSignature,
   interpret,
+  interpreterSource,
   matchesComparator,
   type Interpretation,
 } from "@/lib/interpreter";
+import type { Guest, Hypervisor } from "@/lib/guests";
+import { formatMem } from "@/lib/guests";
 
 type Props = {
   onEvent?: (line: string) => void;
+  hypervisor?: Hypervisor;
+  guests?: Guest[];
+  onStampGuest?: (guest: Guest, signature: string) => void;
 };
 
-export function Interpreter({ onEvent }: Props) {
+export function Interpreter({ onEvent, hypervisor, guests = [], onStampGuest }: Props) {
   const [input, setInput] = useState("Virtual Box");
   const [history, setHistory] = useState<Interpretation[]>([]);
   const [filter, setFilter] = useState("");
   const [decodeIn, setDecodeIn] = useState("");
   const [decodeOut, setDecodeOut] = useState<string | null>(null);
 
+  const src = useMemo(
+    () => interpreterSource(hypervisor?.packageName ?? null, hypervisor?.version ?? null),
+    [hypervisor?.packageName, hypervisor?.version],
+  );
   const live = useMemo(() => interpret(input), [input]);
   const filtered = useMemo(
     () => history.filter((h) => matchesComparator(h, filter)),
@@ -31,6 +43,17 @@ export function Interpreter({ onEvent }: Props) {
     setHistory((prev) => [entry, ...prev].slice(0, 8));
     onEvent?.(
       `interpreter &${BASE44_ID} · "${entry.input.slice(0, 24)}" → base44 ${entry.base44.slice(0, 18)}…`,
+    );
+  }
+
+  function stampGuest(g: Guest) {
+    const desc = guestDescriptor(g);
+    const sig = guestSignature(g, src);
+    const entry = interpret(desc);
+    setHistory((prev) => [entry, ...prev].slice(0, 8));
+    onStampGuest?.(g, sig);
+    onEvent?.(
+      `interpreter &${BASE44_ID} · ${src.pkg}@${src.version} → ${g.name} signed base44 ${sig}`,
     );
   }
 
@@ -83,6 +106,63 @@ export function Interpreter({ onEvent }: Props) {
             <span>{live.bytes} bytes</span>
             <span>{live.complexity}</span>
           </div>
+        </div>
+
+        <div className="border-t border-railedge pt-3">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <p className="text-[10px] text-dim">guest binding</p>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded ring-1 ${
+                src.armed
+                  ? "bg-mint/10 text-mint ring-mint/30"
+                  : "bg-amber/10 text-amber ring-amber/30"
+              }`}
+            >
+              {src.armed ? `armed · ${src.pkg} ${src.version}` : "awaiting hypervisor .deb"}
+            </span>
+          </div>
+          {!src.armed ? (
+            <p className="text-[10px] text-dim px-1">
+              upload &amp; install a hypervisor package (e.g.
+              <span className="text-ink"> virtualbox-7.2_7.2.16-174877~Ubuntu~noble_amd64.deb</span>)
+              on the file server to source the interpreter.
+            </p>
+          ) : (
+            <>
+              <p className="text-[10px] text-dim px-1 mb-1.5">
+                source fingerprint <span className="text-lantern">{src.fingerprint}</span>
+              </p>
+              {guests.length === 0 ? (
+                <p className="text-[10px] text-dim px-1">no guests on this host yet</p>
+              ) : (
+                <ul className="space-y-1 max-h-36 overflow-auto">
+                  {guests.map((g) => {
+                    const sig = guestSignature(g, src);
+                    return (
+                      <li
+                        key={g.id}
+                        className="px-2 py-1.5 rounded bg-void ring-1 ring-railedge flex items-center justify-between gap-2"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-ink">{g.name}</span>
+                          <span className="block text-[10px] text-dim truncate">
+                            {g.osType} · {formatMem(g.memMb)} · {g.diskGb} GB
+                          </span>
+                          <span className="block text-[10px] text-lantern truncate">{sig}</span>
+                        </span>
+                        <button
+                          onClick={() => stampGuest(g)}
+                          className="shrink-0 px-2 py-1 rounded bg-neon/10 text-neon ring-1 ring-neon/30 hover:bg-neon/20 transition text-[10px]"
+                        >
+                          {g.signature === sig ? "re-stamp" : "stamp"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
         </div>
 
         <div className="border-t border-railedge pt-3">
