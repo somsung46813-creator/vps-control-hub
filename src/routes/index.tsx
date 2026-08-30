@@ -92,6 +92,8 @@ function Console() {
   const [clock, setClock] = useState("--:--:--");
   const [command, setCommand] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
+  const [guestBrowsers, setGuestBrowsers] = useState<Record<string, BrowserId[]>>({});
+
   const [files, setFiles] = useState<HostFile[]>(() => [
     ...seedFiles("vm-1"),
     ...seedFiles("vm-2").slice(0, 1),
