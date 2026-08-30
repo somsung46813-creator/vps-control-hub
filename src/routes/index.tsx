@@ -450,6 +450,7 @@ function Console() {
               onPower={powerGuest}
               onDelete={deleteGuest}
               onConnect={connectGuest}
+              onToggleAutostart={toggleGuestAutostart}
             />
 
           </div>
