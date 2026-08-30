@@ -488,6 +488,13 @@ function Console() {
           onClose={() => setSessionGuestId(null)}
         />
       )}
+      {rdpGuest && (
+        <RemoteDesktop
+          guest={rdpGuest}
+          hostIp={vms.find((v) => v.id === rdpGuest.hostId)?.ip ?? selected.ip}
+          onClose={() => setRdpGuestId(null)}
+        />
+      )}
     </div>
   );
 }
