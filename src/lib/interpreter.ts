@@ -140,6 +140,8 @@ export function guestSignature(
 
 /* ---------- interpret → provision: turn a natural phrase into a guest build plan ---------- */
 
+export type BrowserId = "firefox" | "chromium" | "google-chrome";
+
 export type ProvisionPlan = {
   /** normalized subject the interpreter recognised, e.g. "virtualbox" */
   subject: string;
@@ -151,7 +153,9 @@ export type ProvisionPlan = {
   guestName: string;
   desktop: boolean;
   autostart: boolean;
-  /** base44 digest of the plan itself */
+  /** browsers to install + place launchers for */
+  browsers: BrowserId[];
+  /** unique base44 key for this plan/guest (never shared between guests) */
   digest: string;
   /** shell/VBoxManage steps the plan expands to */
   steps: string[];
@@ -165,16 +169,67 @@ const TEMPLATE_KEYS: { idx: number; label: string; keys: RegExp }[] = [
   { idx: 4, label: "Fedora 41 Workstation", keys: /fedora/i },
 ];
 
+const BROWSER_META: Record<BrowserId, { label: string; pkg: string; desktopFile: string; exec: string }> = {
+  firefox: {
+    label: "Mozilla Firefox",
+    pkg: "firefox",
+    desktopFile: "firefox.desktop",
+    exec: "/usr/bin/firefox",
+  },
+  chromium: {
+    label: "Chromium",
+    pkg: "chromium-browser",
+    desktopFile: "chromium-browser.desktop",
+    exec: "/usr/bin/chromium-browser",
+  },
+  "google-chrome": {
+    label: "Google Chrome",
+    pkg: "google-chrome-stable",
+    desktopFile: "google-chrome.desktop",
+    exec: "/usr/bin/google-chrome",
+  },
+};
+
+export function browserLabel(id: BrowserId): string {
+  return BROWSER_META[id].label;
+}
+
 function slugName(text: string): string {
   const cleaned = text
-    .replace(/virtual\s*box|virtualbox|vbox|install|configure|set\s*up|setup|guest|operating\s*system|os/gi, " ")
+    .replace(
+      /virtual\s*box|virtualbox|vbox|install|configure|set\s*up|setup|guest|operating\s*system|with|desktop|firefox|chromium|chrome|browser|os/gi,
+      " ",
+    )
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
   return cleaned ? cleaned.slice(0, 24) : `spectrum-${base44Encode(text).slice(0, 6).toLowerCase()}`;
 }
 
-export function planFromText(text: string, src: InterpreterSource): ProvisionPlan {
+function detectBrowsers(text: string): BrowserId[] {
+  const out: BrowserId[] = [];
+  if (/firefox/i.test(text)) out.push("firefox");
+  if (/chromium/i.test(text)) out.push("chromium");
+  if (/google\s*chrome|(^|\W)chrome(\W|$)/i.test(text)) out.push("google-chrome");
+  return out;
+}
+
+let planSeq = 0;
+
+/** Unique base44 key per guest — seeded by name, spec, package source and a monotonic nonce. */
+export function guestKey(
+  parts: { name: string; spec: string },
+  src: InterpreterSource,
+  nonce?: string,
+): string {
+  planSeq += 1;
+  const n = nonce ?? `${planSeq}`;
+  return base44Encode(
+    `${src.pkg ?? BASE44_ID}${src.version ?? BASE44_SEED}::${parts.name}::${parts.spec}::${n}`,
+  ).slice(0, 22);
+}
+
+export function planFromText(text: string, src: InterpreterSource, nonce?: string): ProvisionPlan {
   const isVirtualBox = /virtual\s*box|virtualbox|vbox|hypervisor/i.test(text);
   const match = TEMPLATE_KEYS.find((t) => t.keys.test(text)) ?? TEMPLATE_KEYS[0]!;
   const desktop = !/headless|server only|no desktop/i.test(text);
@@ -188,19 +243,63 @@ export function planFromText(text: string, src: InterpreterSource): ProvisionPla
     guestName,
     desktop,
     autostart,
-    digest: base44Encode(`${src.pkg ?? BASE44_ID}::${guestName}::${match.label}`).slice(0, 18),
+    browsers: detectBrowsers(text),
+    digest: guestKey({ name: guestName, spec: match.label }, src, nonce ?? `preview:${guestName}`),
     steps: [],
   };
   plan.steps = provisionSteps(plan, src);
   return plan;
 }
 
+/** Rebuild a plan carrying the guest's own signature so every guest signs uniquely. */
+export function planWithSignature(plan: ProvisionPlan, src: InterpreterSource, signature: string): ProvisionPlan {
+  const next = { ...plan, digest: signature };
+  next.steps = provisionSteps(next, src);
+  return next;
+}
+
+/** Derive the build plan for an already-provisioned guest. */
+export function planForGuest(
+  g: { name: string; osType: string; memMb: number; diskGb: number; autostart: boolean; signature?: string },
+  src: InterpreterSource,
+  browsers: BrowserId[] = [],
+): ProvisionPlan {
+  const plan: ProvisionPlan = {
+    subject: "virtualbox",
+    isVirtualBox: true,
+    templateIndex: -1,
+    templateLabel: `${g.osType} · ${g.memMb}M · ${g.diskGb}G`,
+    guestName: g.name,
+    desktop: true,
+    autostart: g.autostart,
+    browsers,
+    digest: g.signature ?? guestSignature(g, src),
+    steps: [],
+  };
+  plan.steps = provisionSteps(plan, src);
+  return plan;
+}
+
+export function browserSteps(plan: ProvisionPlan): string[] {
+  const out: string[] = [];
+  for (const id of plan.browsers) {
+    const b = BROWSER_META[id];
+    out.push(
+      `guest exec · sudo apt-get install -y ${b.pkg}`,
+      `guest exec · cp /usr/share/applications/${b.desktopFile} ~/Desktop/`,
+      `guest exec · chmod +x ~/Desktop/${b.desktopFile}`,
+      `xfdesktop · launcher "${b.label}" → ${b.exec} · icon placed on desktop`,
+    );
+  }
+  return out;
+}
+
 export function provisionSteps(plan: ProvisionPlan, src: InterpreterSource): string[] {
   const pkg = src.armed ? `${src.pkg} ${src.version}` : "virtualbox (not installed)";
   const steps = [
-    `interpreter &${BASE44_ID} · source ${pkg} · digest ${plan.digest}`,
+    `interpreter &${BASE44_ID} · source ${pkg} · key ${plan.digest}`,
     `VBoxManage createvm --name ${plan.guestName} --ostype ${plan.templateLabel} --register`,
-    `VBoxManage modifyvm ${plan.guestName} --memory --vram 128 --nic1 nat --audio none`,
+    `VBoxManage modifyvm ${plan.guestName} --vram 128 --nic1 nat --audio none`,
     `VBoxManage createmedium disk --filename ${plan.guestName}.vdi --variant Standard`,
     `VBoxManage storagectl ${plan.guestName} --name SATA --add sata --controller IntelAhci`,
     `VBoxManage setextradata ${plan.guestName} spectrum/base44 ${plan.digest}`,
@@ -211,6 +310,7 @@ export function provisionSteps(plan: ProvisionPlan, src: InterpreterSource): str
       `guest exec · systemctl enable lightdm.service`,
     );
   }
+  steps.push(...browserSteps(plan));
   if (plan.autostart) {
     steps.push(
       `VBoxManage setextradata ${plan.guestName} GUI/Autostart on`,
@@ -220,3 +320,4 @@ export function provisionSteps(plan: ProvisionPlan, src: InterpreterSource): str
   steps.push(`VBoxManage modifyvm ${plan.guestName} --vrde on --vrdeport 3390`);
   return steps;
 }
+
