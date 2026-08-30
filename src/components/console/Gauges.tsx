@@ -21,8 +21,8 @@ const BAR = {
 
 export function Gauges({ gauges }: { gauges: Gauge[] }) {
   return (
-    <section className="px-6 pt-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <section className="console-pad pb-0">
+      <div className="console-cards">
         {gauges.map((g) => (
           <div key={g.label} className="rounded-xl bg-panel ring-1 ring-railedge p-4">
             <div className="flex items-center justify-between text-[11px] text-dim">

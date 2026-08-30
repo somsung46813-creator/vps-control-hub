@@ -605,7 +605,7 @@ function Console() {
   const rdpGuest = guests.find((g) => g.id === rdpGuestId && g.status === "running") ?? null;
 
   return (
-    <div className="min-h-screen bg-void text-ink flex">
+    <div className="console-shell bg-void text-ink">
       <SideRail
         active={view}
         onSelect={setView}
@@ -615,8 +615,8 @@ function Console() {
         }}
       />
 
-      <main className="flex-1 min-w-0">
-        <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-railedge">
+      <main className="console-main min-w-0">
+        <header className="flex flex-wrap items-center justify-between gap-3 px-[var(--console-pad-x)] py-4 border-b border-railedge">
           <div>
             <h1 className="font-display font-semibold text-2xl leading-tight">{view}</h1>
             <p className="text-xs text-dim mt-1">
@@ -657,8 +657,8 @@ function Console() {
           ]}
         />
 
-        <section className="px-6 py-5 grid grid-cols-1 xl:grid-cols-[1.15fr_1fr] gap-3">
-          <div className="flex flex-col gap-3">
+        <section className="console-pad console-split">
+          <div className="console-stack">
             <InstanceTable
               vms={sorted}
               selectedId={selected.id}
@@ -697,7 +697,7 @@ function Console() {
 
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="console-stack">
             <DetailPanel vm={selected} onAction={runAction} />
             <Interpreter
               onEvent={(line) => push(makeLog("ok", line))}

@@ -139,3 +139,141 @@
     animation: vb-sweep 4.5s linear infinite;
   }
 }
+
+/* ============================================================
+ * Console grid system — CSS Grid layout driven by custom
+ * properties so the DOM can be re-fitted at runtime by simply
+ * overriding a variable on any ancestor (or via inline style).
+ *
+ *   <div style={{ "--console-rail": "12rem" }}>  → narrower rail
+ *   <div style={{ "--console-min-col": "20rem" }}> → denser columns
+ * ============================================================ */
+
+:root {
+  /* structural */
+  --console-rail: 14rem;
+  --console-rail-min: 10rem;
+  --console-gap: 0.75rem;
+  --console-pad-x: 1.5rem;
+  --console-pad-y: 1.25rem;
+  /* smallest a content column may become before the grid re-flows */
+  --console-min-col: 26rem;
+  --console-min-card: 13rem;
+  /* ratio between the primary and secondary console columns */
+  --console-split: 1.15fr 1fr;
+  /* breakpoint at which the side rail docks to the top */
+  --console-rail-break: 60rem;
+}
+
+/* shell: rail + main, collapsing to stacked rows on narrow viewports */
+.console-shell {
+  display: grid;
+  grid-template-columns: clamp(var(--console-rail-min), var(--console-rail), 30vw) minmax(0, 1fr);
+  grid-template-areas: "rail main";
+  min-height: 100dvh;
+}
+.console-shell > .console-rail {
+  grid-area: rail;
+  min-width: 0;
+}
+.console-shell > .console-main {
+  grid-area: main;
+  min-width: 0;
+}
+
+@media (max-width: 60rem) {
+  .console-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "rail" "main";
+  }
+}
+
+/* rail internals: header / nav / status, nav scrolls when docked on top */
+.console-rail-inner {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+}
+.console-rail-nav {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+  grid-auto-flow: row;
+  overflow: auto;
+}
+@media (max-width: 60rem) {
+  .console-rail-inner {
+    grid-template-rows: auto auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .console-rail-nav {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .console-rail-status {
+    display: none;
+  }
+}
+
+/* fluid card grid: as many columns as fit, never narrower than --console-min-card */
+.console-cards {
+  display: grid;
+  gap: var(--console-gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--console-min-card), 100%), 1fr));
+}
+
+/* two-column workspace that folds to one when columns can't hold their minimum */
+.console-split {
+  display: grid;
+  gap: var(--console-gap);
+  grid-template-columns: var(--console-split);
+  align-items: start;
+}
+@media (max-width: 78rem) {
+  .console-split {
+    grid-template-columns: repeat(auto-fit, minmax(min(var(--console-min-col), 100%), 1fr));
+  }
+}
+
+/* vertical stack of panels inside a column */
+.console-stack {
+  display: grid;
+  gap: var(--console-gap);
+  align-content: start;
+  grid-auto-rows: min-content;
+  min-width: 0;
+}
+
+/* section padding driven by the same variables */
+.console-pad {
+  padding-inline: var(--console-pad-x);
+  padding-block: var(--console-pad-y);
+}
+
+/* every grid child may shrink below its content width */
+.console-shell *,
+.console-split > *,
+.console-stack > *,
+.console-cards > * {
+  min-width: 0;
+}
+
+/* phone: denser cards (2-up gauges) and tighter gutters */
+@media (max-width: 40rem) {
+  :root {
+    --console-min-card: 9rem;
+    --console-pad-x: 0.875rem;
+    --console-pad-y: 0.875rem;
+    --console-gap: 0.625rem;
+  }
+}
+
+/* ultrawide: allow a third rail of panels without stretching cards */
+@media (min-width: 110rem) {
+  :root {
+    --console-split: 1.2fr 1fr;
+    --console-min-col: 30rem;
+  }
+}
