@@ -1124,7 +1124,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                         onKeyDown={(e) => e.stopPropagation()}
                         spellCheck={false}
                         aria-label="Address bar"
-                        placeholder="Search with DuckDuckGo or enter address"
+                        placeholder="Search with Google or enter address"
                         className="w-full rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff] outline-none ring-1 ring-transparent focus:ring-[#7ec8ff]/50"
                       />
                     </form>
