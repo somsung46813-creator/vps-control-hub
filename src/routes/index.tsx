@@ -5,7 +5,18 @@ import { Gauges } from "@/components/console/Gauges";
 import { InstanceTable } from "@/components/console/InstanceTable";
 import { DetailPanel } from "@/components/console/DetailPanel";
 import { LogStream } from "@/components/console/LogStream";
+import { FileServer } from "@/components/console/FileServer";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
+import {
+  downloadFile,
+  dropBlob,
+  formatBytes,
+  makeHostFile,
+  permString,
+  seedFiles,
+  type HostFile,
+  type Perms,
+} from "@/lib/filestore";
 import {
   ambientLog,
   fleetAverages,
@@ -17,6 +28,7 @@ import {
   type LogLine,
   type Vm,
 } from "@/lib/fleet";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,12 +59,17 @@ function Console() {
   const [selectedId, setSelectedId] = useState("vm-1");
   const [view, setView] = useState("Fleet overview");
   const [logs, setLogs] = useState<LogLine[]>(() => [
-    makeLog("ok", "agent 4.2.1 attached to 5 hosts"),
-    makeLog("net", "control plane link established · eu-central"),
+    makeLog("ok", "agent 4.2.1 attached to 5 hosts", "00:00:00"),
+    makeLog("net", "control plane link established · eu-central", "00:00:01"),
   ]);
   const [clock, setClock] = useState("--:--:--");
   const [command, setCommand] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
+  const [files, setFiles] = useState<HostFile[]>(() => [
+    ...seedFiles("vm-1"),
+    ...seedFiles("vm-2").slice(0, 1),
+  ]);
+
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -162,6 +179,76 @@ function Console() {
     setTimeout(() => push(makeLog("ok", `${cmd.split(" ")[0]} completed · exit 0`)), 900);
   }
 
+  const vmFiles = useMemo(
+    () => files.filter((f) => f.vmId === selected.id),
+    [files, selected.id],
+  );
+
+  function uploadFiles(list: FileList) {
+    const time = stamp();
+    const added = Array.from(list).map((f) => makeHostFile(f, selected.id, time));
+    setFiles((prev) => [...added, ...prev]);
+    added.forEach((f) =>
+      push(
+        makeLog(
+          "net",
+          `PUT ${f.path} · ${formatBytes(f.size)} · mode ${permString(f.perms)}`,
+        ),
+      ),
+    );
+  }
+
+  function downloadHostFile(file: HostFile) {
+    if (!file.perms.r) return;
+    downloadFile(file);
+    push(makeLog("ok", `GET ${file.path} · ${formatBytes(file.size)} streamed`));
+  }
+
+  function deleteHostFile(file: HostFile) {
+    if (!file.perms.w) return;
+    dropBlob(file.id);
+    setFiles((prev) => prev.filter((f) => f.id !== file.id));
+    push(makeLog("warn", `unlink ${file.path}`));
+  }
+
+  function togglePerm(file: HostFile, bit: keyof Perms) {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === file.id ? { ...f, perms: { ...f.perms, [bit]: !f.perms[bit] } } : f)),
+    );
+    const next = { ...file.perms, [bit]: !file.perms[bit] };
+    push(makeLog("net", `chmod ${permString(next)} ${file.path}`));
+  }
+
+  function runHostFile(file: HostFile) {
+    if (!file.perms.x) {
+      push(makeLog("err", `permission denied · ${file.path} not executable`));
+      return;
+    }
+    const host = vms.find((v) => v.id === file.vmId);
+    if (!host) return;
+    if (host.status === "stopped") {
+      push(makeLog("warn", `${host.hostname} stopped · booting before exec`));
+      runAction(host.id, "start");
+    }
+    push(makeLog("net", `exec ${file.path} on ${host.hostname} · pid ${1000 + Math.floor(Math.random() * 8000)}`));
+    setTimeout(() => {
+      setVms((prev) =>
+        prev.map((v) =>
+          v.id === file.vmId
+            ? {
+                ...v,
+                status: v.status === "stopped" ? v.status : "live",
+                cpu: Math.min(96, v.cpu + 14),
+                diskIo: v.diskIo + 30,
+              }
+            : v,
+        ),
+      );
+      push(makeLog("ok", `${file.name} running · instance attached to ${host.hostname}`));
+    }, 1200);
+  }
+
+
   return (
     <div className="min-h-screen bg-void text-ink flex">
       <SideRail
@@ -216,12 +303,24 @@ function Console() {
         />
 
         <section className="px-6 py-5 grid grid-cols-1 xl:grid-cols-[1.15fr_1fr] gap-3">
-          <InstanceTable
-            vms={sorted}
-            selectedId={selected.id}
-            onSelect={setSelectedId}
-            onAction={runAction}
-          />
+          <div className="flex flex-col gap-3">
+            <InstanceTable
+              vms={sorted}
+              selectedId={selected.id}
+              onSelect={setSelectedId}
+              onAction={runAction}
+            />
+            <FileServer
+              vm={selected}
+              files={vmFiles}
+              onUpload={uploadFiles}
+              onDownload={downloadHostFile}
+              onRun={runHostFile}
+              onDelete={deleteHostFile}
+              onTogglePerm={togglePerm}
+            />
+          </div>
+
           <div className="flex flex-col gap-3">
             <DetailPanel vm={selected} onAction={runAction} />
             <LogStream

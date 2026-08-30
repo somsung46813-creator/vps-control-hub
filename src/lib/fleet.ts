@@ -36,11 +36,18 @@ export const PLANS = [
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 
-function series(base: number, n = 11): number[] {
+// Deterministic so SSR and hydration agree.
+function pseudo(seed: number): number {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function series(base: number, seed = 0, n = 11): number[] {
   return Array.from({ length: n }, (_, i) =>
-    clamp(Math.round(base + Math.sin(i * 0.9) * 12 + (Math.random() - 0.5) * 14)),
+    clamp(Math.round(base + Math.sin(i * 0.9) * 12 + (pseudo(seed * 31 + i + 1) - 0.5) * 14)),
   );
 }
+
 
 export function seedFleet(): Vm[] {
   const spec: Array<[string, string, VmStatus, number, number, number, number, string]> = [
@@ -65,7 +72,7 @@ export function seedFleet(): Vm[] {
     mem: status === "stopped" ? 0 : clamp(cpu - 8 + i * 3),
     netMbps: status === "stopped" ? 0 : 180 + i * 260,
     diskIo: status === "stopped" ? 0 : 40 + i * 35,
-    history: status === "stopped" ? Array.from({ length: 11 }, () => 0) : series(cpu),
+    history: status === "stopped" ? Array.from({ length: 11 }, () => 0) : series(cpu, i + 1),
   }));
 }
 
@@ -113,10 +120,11 @@ export function stamp(d = new Date()): string {
 }
 
 let logSeq = 0;
-export function makeLog(level: LogLine["level"], text: string): LogLine {
+export function makeLog(level: LogLine["level"], text: string, time?: string): LogLine {
   logSeq += 1;
-  return { id: `log-${logSeq}`, time: stamp(), level, text };
+  return { id: `log-${logSeq}`, time: time ?? stamp(), level, text };
 }
+
 
 export function ambientLog(vms: Vm[]): LogLine {
   const vm = vms[Math.floor(Math.random() * vms.length)]!;
