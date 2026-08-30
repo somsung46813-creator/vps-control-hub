@@ -37,7 +37,11 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-/** Turn raw omnibox input into a URL (search when it is not URL-ish). */
+/** Turn raw omnibox input into a URL (Google search when it is not URL-ish). */
+export function searchUrl(query: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
 export function normalizeUrl(input: string): string {
   const raw = input.trim();
   if (!raw) return "about:blank";
@@ -45,7 +49,7 @@ export function normalizeUrl(input: string): string {
   if (/^https?:\/\//i.test(raw)) return raw;
   const looksHost = /^[\w-]+(\.[\w-]+)+(:\d+)?(\/|$)/.test(raw);
   if (looksHost) return `https://${raw}`;
-  return `https://duckduckgo.com/?q=${encodeURIComponent(raw)}`;
+  return searchUrl(raw);
 }
 
 type PageSeed = {
