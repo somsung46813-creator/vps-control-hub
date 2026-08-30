@@ -135,6 +135,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               {done ? "connected · TLS 1.3" : "handshaking…"}
             </span>
             <button
+              onClick={toggleGrab}
+              disabled={!done}
+              aria-pressed={grabbed}
+              aria-label={grabbed ? "Release input to local desktop" : "Grab mouse and keyboard input"}
+              className={`text-[10px] px-2 py-1 rounded ring-1 font-mono transition disabled:opacity-40 ${
+                grabbed
+                  ? "text-neon ring-neon/50 bg-neon/10 hover:bg-neon/20"
+                  : "text-amber ring-amber/50 bg-amber/10 hover:bg-amber/20"
+              }`}
+            >
+              {grabbed ? "⤓ release input" : "⤒ grab input"}
+            </button>
+            <button
               onClick={onClose}
               aria-label="Close remote desktop"
               className="text-[10px] px-2 py-1 rounded ring-1 ring-railedge text-dim hover:text-destructive transition"
