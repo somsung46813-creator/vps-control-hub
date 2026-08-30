@@ -354,6 +354,11 @@ function Console() {
     }, 1600);
   }
 
+  const interpSrc = useMemo(
+    () => interpreterSource(hypervisor.packageName, hypervisor.version),
+    [hypervisor.packageName, hypervisor.version],
+  );
+
   const hostGuests = useMemo(
     () => guests.filter((g) => g.hostId === selected.id),
     [guests, selected.id],
@@ -494,6 +499,40 @@ function Console() {
 
 
 
+
+  /** Plan per guest, keyed by the guest's own base44 signature. */
+  const guestPlans = useMemo(() => {
+    const out: Record<string, ProvisionPlan> = {};
+    for (const g of hostGuests) out[g.id] = planForGuest(g, interpSrc, guestBrowsers[g.id] ?? []);
+    return out;
+  }, [hostGuests, interpSrc, guestBrowsers]);
+
+  /** Re-run the whole plan against the existing guest (host layer included). */
+  function rebuildGuest(guest: Guest) {
+    const plan = guestPlans[guest.id] ?? planForGuest(guest, interpSrc, guestBrowsers[guest.id] ?? []);
+    push(makeLog("net", `spectrum interpreter · rebuilding ${guest.name} · key ${plan.digest}`));
+    setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, status: "installing" } : g)));
+    runPlanSteps(plan, guest.id, guest.diskGb);
+  }
+
+  /** Destroy and re-create the guest from its plan with a freshly signed key. */
+  function reprovisionGuest(guest: Guest) {
+    const browsers = guestBrowsers[guest.id] ?? [];
+    const base = planForGuest(guest, interpSrc, browsers);
+    push(makeLog("warn", `VBoxManage unregistervm ${guest.name} --delete · re-provisioning`));
+    setGuests((prev) => prev.filter((g) => g.id !== guest.id));
+    const fresh = makeGuest(guest.name, guest.hostId, guest, stamp());
+    fresh.autostart = guest.autostart;
+    fresh.signature = guestKey(
+      { name: fresh.name, spec: `${guest.osType}|${guest.memMb}M|${guest.diskGb}G` },
+      interpSrc,
+      fresh.id,
+    );
+    const signed = planWithSignature(base, interpSrc, fresh.signature);
+    setGuests((prev) => [fresh, ...prev]);
+    setGuestBrowsers((prev) => ({ ...prev, [fresh.id]: browsers }));
+    runPlanSteps(signed, fresh.id, guest.diskGb);
+  }
 
   function powerGuest(guest: Guest, action: "start" | "stop" | "pause") {
     const next =
@@ -649,6 +688,11 @@ function Console() {
               onConnect={connectGuest}
               onOpenDesktop={openDesktop}
               onToggleAutostart={toggleGuestAutostart}
+              plans={guestPlans}
+              hostRdp={hostRdp.includes(selected.id)}
+              hostPackages={hostPackages[selected.id] ?? []}
+              onRebuild={rebuildGuest}
+              onReprovision={reprovisionGuest}
             />
 
           </div>
