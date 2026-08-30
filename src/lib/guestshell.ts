@@ -160,7 +160,7 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
       return [
         "available: help, uname, whoami, hostname, ip, free, df, uptime, ps, ls,",
         "           cat /etc/os-release, systemctl status, apt update, dpkg -l,",
-        "           sudo apt install <pkg>, startx, clear, exit",
+        "           sudo apt install <pkg>, config autostart, startx, clear, exit",
       ];
     case "startx": {
       if (!installed(guest).has("xorg") && !installed(guest).has("xserver-xorg") && !installed(guest).has("ubuntu-desktop")) {
