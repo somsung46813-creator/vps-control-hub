@@ -21,10 +21,15 @@ import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 import { Interpreter } from "@/components/console/Interpreter";
 import {
+  guestKey,
   guestSignature,
   interpreterSource,
+  planWithSignature,
+  type BrowserId,
   type ProvisionPlan,
 } from "@/lib/interpreter";
+import { BuildPlanPanel } from "@/components/console/BuildPlanPanel";
+
 
 
 import {
