@@ -292,6 +292,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     }
     const out: string[] = [`ubuntu@${guest.name}:~$ ${cmd}`];
     const snap = cmd.match(/^sudo\s+snap\s+install\s+(\S+)/);
+    const reinst = cmd.match(/^sudo\s+apt(?:-get)?\s+install\s+--reinstall\s+(?:-y\s+)?(\S+)/);
     const apt = cmd.match(/^sudo\s+apt(?:-get)?\s+install\s+(?:-y\s+)?(\S+)/);
     const cpChrome = /^cp\s+\/usr\/share\/applications\/google-chrome\.desktop\s+~\/Desktop\/?$/.test(cmd);
     const chmodChrome = /^chmod\s+\+x\s+~\/Desktop\/google-chrome\.desktop$/.test(cmd);
@@ -311,12 +312,26 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       }
     } else if (/^ls\s+~?\/?Desktop\/?$/.test(cmd)) {
       out.push(chromeShortcut ? "google-chrome.desktop" : "(empty)");
+    } else if (reinst && /^(xrdp|vrde|rdp|virtualbox)/.test(reinst[1]!)) {
+      out.push(
+        `Reading package lists... Done`,
+        `Reinstallation of ${reinst[1]} ...`,
+        `Setting up ${reinst[1]} (reconfigured) ...`,
+        `# RDP stack rebuilt — session will renegotiate`,
+      );
+      reinstallRdp(`apt install --reinstall ${reinst[1]}`);
     } else if (snap) {
       out.push(`Download snap "${snap[1]}" (4021) from Snap Store`, `${snap[1]} 128.0 from Mozilla✓ installed`);
       emit(`snapd: ${snap[1]} installed in ${guest.name}`);
     } else if (apt) {
       out.push(`Reading package lists... Done`, `Setting up ${apt[1]} ...`, `Processing triggers for desktop-file-utils ...`);
       emit(`dpkg: ${apt[1]} configured in ${guest.name}`);
+      if (/^(chromium|chromium-browser)$/.test(apt[1]!)) {
+        setChromiumInstalled(true);
+        setTrashed((prev) => prev.filter((l) => l !== "Chromium"));
+        out.push("# chromium-browser installed — desktop icon added");
+        emit(`gio: chromium-browser.desktop registered · icon added to desktop`);
+      }
     } else if (cmd === "clear") {
       setTermLines([]);
       return;
