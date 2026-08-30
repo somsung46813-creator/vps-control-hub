@@ -287,6 +287,17 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <div className="flex items-center gap-2">
                   <span className="text-[11px]">{CLASS_ICON[d.cls]}</span>
                   <span className="text-[10px] text-ink truncate flex-1">{d.name}</span>
+                  {(d.cls === "mouse" || d.cls === "keyboard") && d.attached && (
+                    <span
+                      className={`text-[9px] font-mono px-1.5 py-0.5 rounded ring-1 ${
+                        grabbed
+                          ? "text-neon ring-neon/40 bg-neon/10"
+                          : "text-amber ring-amber/40 bg-amber/10"
+                      }`}
+                    >
+                      {grabbed ? "input live" : "grab off"}
+                    </span>
+                  )}
                   <span
                     className={`text-[9px] font-mono px-1.5 py-0.5 rounded ring-1 ${
                       d.attached
