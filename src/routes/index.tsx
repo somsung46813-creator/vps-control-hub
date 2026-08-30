@@ -20,6 +20,7 @@ import {
 import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 import { Interpreter } from "@/components/console/Interpreter";
+import { guestSignature, interpreterSource } from "@/lib/interpreter";
 
 import {
   downloadFile,
@@ -355,7 +356,14 @@ function Console() {
   function createGuest(name: string, templateIndex: number) {
     const tpl = GUEST_TEMPLATES[templateIndex]!;
     const guest = makeGuest(name, selected.id, tpl, stamp());
+    const src = interpreterSource(hypervisor.packageName, hypervisor.version);
+    if (src.armed) guest.signature = guestSignature(guest, src);
     setGuests((prev) => [guest, ...prev]);
+    if (guest.signature) {
+      push(
+        makeLog("ok", `spectrum interpreter signed ${name} · base44 ${guest.signature}`),
+      );
+    }
     push(makeLog("net", `VBoxManage createvm --name ${name} --ostype ${tpl.osType} --register`));
     setTimeout(() => {
       setGuests((prev) =>
