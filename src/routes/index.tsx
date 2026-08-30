@@ -24,6 +24,7 @@ import {
   browserPackage,
   guestKey,
   guestSignature,
+  hostSteps,
   planForGuest,
   interpreterSource,
   planWithSignature,
@@ -182,6 +183,12 @@ function Console() {
     }, 2200);
   }
 
+  /** Hypervisor .deb sitting on the file server (any host) — the interpreter source. */
+  const hypervisorDeb = useMemo(
+    () => files.find((f) => isHypervisorPackage(f.name)) ?? null,
+    [files],
+  );
+
   function deploy(spec: DeploySpec) {
     const plan = PLANS[spec.planIndex]!;
     idSeq += 1;
@@ -213,8 +220,78 @@ function Console() {
         prev.map((v) => (v.id === id ? { ...v, status: "live", cpu: 26, mem: 34, netMbps: 180 } : v)),
       );
       push(makeLog("ok", `${vm.hostname} seated in ${vm.region} · ${plan.label}`));
+      buildHostFromDeploy(vm, spec);
     }, 2600);
   }
+
+  /**
+   * Spectrum Interpreter chain: file server .deb → VirtualBox on the new host →
+   * lightdm/xrdp host layer → signed guest bound to its build plan.
+   */
+  function buildHostFromDeploy(vm: Vm, spec: DeploySpec) {
+    let src = interpreterSource(hypervisor.packageName, hypervisor.version);
+
+    if (spec.installHypervisor && hypervisorDeb) {
+      const meta = parseDeb(hypervisorDeb.name);
+      const copy: HostFile = {
+        ...hypervisorDeb,
+        id: `${hypervisorDeb.id}-${vm.id}`,
+        vmId: vm.id,
+        path: `/srv/vantage/${vm.id}/${hypervisorDeb.name}`,
+        uploadedAt: stamp(),
+        perms: { r: true, w: true, x: true },
+      };
+      setFiles((prev) => (prev.some((f) => f.id === copy.id) ? prev : [copy, ...prev]));
+      setInstalledPackages((prev) => (prev.includes(copy.id) ? prev : [...prev, copy.id]));
+      push(makeLog("net", `scp ${hypervisorDeb.name} → ${vm.hostname}:${copy.path}`));
+      push(makeLog("net", `dpkg -i ${copy.path} · ${meta.pkg} ${meta.version} (${meta.arch})`));
+      setHypervisor((prev) => ({
+        version: meta.version,
+        packageName: meta.pkg,
+        installedOn: prev.installedOn.includes(vm.id) ? prev.installedOn : [...prev.installedOn, vm.id],
+      }));
+      push(makeLog("ok", `vboxdrv kernel module built on ${vm.hostname} · guest manager online`));
+      src = interpreterSource(meta.pkg, meta.version);
+    } else if (spec.installHypervisor) {
+      push(makeLog("warn", "no hypervisor .deb on the file server · upload virtualbox-*.deb first"));
+    }
+
+    if (spec.guestTemplateIndex >= 0) {
+      const tpl = GUEST_TEMPLATES[spec.guestTemplateIndex]!;
+      const guest = makeGuest(`${vm.hostname}-guest`, vm.id, tpl, stamp());
+      guest.autostart = spec.autostart;
+      guest.signature = guestKey(
+        { name: guest.name, spec: `${tpl.osType}|${tpl.memMb}M|${tpl.diskGb}G` },
+        src,
+        guest.id,
+      );
+      const base = planForGuest(guest, src, spec.browsers);
+      base.host = spec.hostDisplayStack;
+      const signed = planWithSignature(base, src, guest.signature);
+      setGuests((prev) => [guest, ...prev]);
+      setGuestBrowsers((prev) => ({ ...prev, [guest.id]: spec.browsers }));
+      push(
+        makeLog("ok", `spectrum interpreter bound ${guest.name} to build plan · base44 ${guest.signature}`),
+      );
+      runPlanSteps(signed, guest.id, tpl.diskGb, vm.id);
+      return;
+    }
+
+    if (spec.hostDisplayStack) {
+      const lines: string[] = hostSteps({ browsers: spec.browsers } as ProvisionPlan);
+      lines.forEach((line: string, i: number) =>
+        setTimeout(() => {
+          push(makeLog("net", line));
+          executeStep(line, "", vm.id);
+        }, i * 220),
+      );
+      setTimeout(
+        () => push(makeLog("ok", `${vm.hostname} host layer ready · lightdm seat0 · xrdp 3389`)),
+        lines.length * 220 + 400,
+      );
+    }
+  }
+
 
   function installHostLightdm(hostId: string, via: string) {
     const host = vms.find((v) => v.id === hostId);
@@ -470,9 +547,9 @@ function Console() {
     }
   }
 
-  function runPlanSteps(plan: ProvisionPlan, guestId: string, diskGb?: number) {
+  function runPlanSteps(plan: ProvisionPlan, guestId: string, diskGb?: number, hostIdOverride?: string) {
     const guest = guests.find((g) => g.id === guestId);
-    const hostId = guest?.hostId ?? selected.id;
+    const hostId = hostIdOverride ?? guest?.hostId ?? selected.id;
     plan.steps.forEach((line, i) => {
       setTimeout(() => {
         push(makeLog("net", line));
@@ -723,7 +800,12 @@ function Console() {
         </section>
       </main>
 
-      <DeployDrawer open={deployOpen} onClose={() => setDeployOpen(false)} onDeploy={deploy} />
+      <DeployDrawer
+        open={deployOpen}
+        onClose={() => setDeployOpen(false)}
+        onDeploy={deploy}
+        hypervisorDeb={hypervisorDeb?.name ?? null}
+      />
       {sessionGuest && (
         <GuestConsole
           guest={sessionGuest}
