@@ -1080,6 +1080,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           }}
           onClick={() => {
             setMenu(null);
+            setFmMenu(null);
+
             if (done && !grabbed) toggleGrab();
             else if (mouseLive) setSelected(null);
           }}
