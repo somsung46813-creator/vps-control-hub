@@ -14,7 +14,8 @@ const STATUS_DOT: Record<VmStatus, string> = {
   provisioning: "bg-lantern pulse-dot",
 };
 
-const COLS = "grid grid-cols-[1.4fr_1fr_0.8fr_1.1fr_2.5rem] gap-2";
+const COLS =
+  "grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_2.5rem] gap-2 items-center";
 
 type Props = {
   vms: Vm[];
@@ -50,9 +51,9 @@ export function InstanceTable({ vms, selectedId, onSelect, onAction }: Props) {
           >
             <span className="text-ink truncate">{vm.hostname}</span>
             <span className="text-dim">{vm.region}</span>
-            <span className={`flex items-center gap-1.5 ${STATUS_TEXT[vm.status]}`}>
+            <span className={`flex items-center gap-1.5 min-w-0 ${STATUS_TEXT[vm.status]}`}>
               <span className={`size-1.5 rounded-full ${STATUS_DOT[vm.status]}`} />
-              {vm.status}
+              <span className="truncate">{vm.status}</span>
             </span>
             <span className="flex items-center gap-2">
               <span className="w-12 h-1 rounded-full bg-void overflow-hidden">
