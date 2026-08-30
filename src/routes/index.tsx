@@ -401,12 +401,23 @@ function Console() {
             <FileServer
               vm={selected}
               files={vmFiles}
+              installedPackages={installedPackages}
               onUpload={uploadFiles}
               onDownload={downloadHostFile}
               onRun={runHostFile}
+              onInstall={installPackage}
               onDelete={deleteHostFile}
               onTogglePerm={togglePerm}
             />
+            <GuestManager
+              vm={selected}
+              hypervisor={hypervisor}
+              guests={hostGuests}
+              onCreate={createGuest}
+              onPower={powerGuest}
+              onDelete={deleteGuest}
+            />
+
           </div>
 
           <div className="flex flex-col gap-3">
