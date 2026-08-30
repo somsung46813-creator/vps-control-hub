@@ -570,6 +570,8 @@ function Console() {
               hypervisor={hypervisor}
               guests={hostGuests}
               onStampGuest={stampGuest}
+              onProvision={provisionFromPlan}
+
             />
             <LogStream
               lines={logs}
