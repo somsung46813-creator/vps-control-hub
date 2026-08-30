@@ -121,7 +121,7 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
         "X.Org X Server 1.21.1.11",
         `(==) Using config directory: "/etc/X11/xorg.conf.d"`,
         `(II) VBOX(0): VirtualBox guest additions video driver`,
-        `(II) modeset(0): 1024x768@60Hz virtual display on VRDE ${conn.rdpPort}`,
+        `(II) modeset(0): 1024x768@60Hz virtual display on VRDE ${conn.vrdePort}`,
         "",
         `Graphical session started for ${conn.user} — display exported to VRDE ${conn.rdpTarget}`,
       ];
