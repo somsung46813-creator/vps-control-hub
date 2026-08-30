@@ -1133,7 +1133,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
                     />
                     <span className="ml-1.5 truncate">
-                      🦊 {foxLoading ? "Loading…" : foxResp?.title ?? "New Tab"} — Mozilla Firefox
+                      {browserApp === "chrome" ? "🌐" : "🦊"}{" "}
+                      {foxLoading ? "Loading…" : foxResp?.title ?? "New Tab"} —{" "}
+                      {browserApp === "chrome" ? "Google Chrome" : "Mozilla Firefox"}
                     </span>
                   </div>
                   {/* navigation toolbar */}
@@ -1423,7 +1425,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 {[
                   { id: "term", label: "Terminal Emulator", open: true },
                   { id: "thunar", label: openWin ? `${openWin} — Thunar` : "Thunar", open: !!openWin },
-                  { id: "firefox", label: "Mozilla Firefox", open: foxWin },
+                  { id: "firefox", label: browserApp === "chrome" ? "Google Chrome" : "Mozilla Firefox", open: foxWin },
                 ]
                   .filter((w) => w.open)
                   .map((w) => (
