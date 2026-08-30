@@ -592,8 +592,14 @@ function Console() {
               guests={hostGuests}
               onStampGuest={stampGuest}
               onProvision={provisionFromPlan}
-
             />
+            <BuildPlanPanel
+              hypervisor={hypervisor}
+              guests={hostGuests}
+              guestBrowsers={guestBrowsers}
+              onRun={(guest, plan) => runPlanSteps(plan, guest.id)}
+            />
+
             <LogStream
               lines={logs}
               clock={clock}
