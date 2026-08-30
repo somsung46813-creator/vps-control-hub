@@ -64,6 +64,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [cursor, setCursor] = useState({ x: 62, y: 55 });
   const [devices, setDevices] = useState<IoDevice[]>(() => ioDevices(guest));
   const [typed, setTyped] = useState("");
+  const [termLines, setTermLines] = useState<string[]>([]);
+  const [cutIcon, setCutIcon] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; label: string | null } | null>(null);
+
   const [selected, setSelected] = useState<string | null>(null);
   const [openWin, setOpenWin] = useState<string | null>(null);
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
@@ -136,14 +140,17 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     if (!done || !keyboardLive) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") return;
+      // let the browser deliver cut/copy/paste events to the cliprdr handlers
+      if (e.ctrlKey || e.metaKey) return;
       e.preventDefault();
       if (e.key === "Backspace") setTyped((t) => t.slice(0, -1));
-      else if (e.key === "Enter") setTyped("");
+      else if (e.key === "Enter") runCommand();
       else if (e.key.length === 1) setTyped((t) => (t + e.key).slice(-48));
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [done, keyboardLive]);
+  });
+
 
   // cliprdr — client clipboard streamed into the guest on paste (Ctrl/Cmd+V)
   const hostToGuest = clipMode === "bidirectional" || clipMode === "host-to-guest";
@@ -186,6 +193,94 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     setClipMode(next.id);
     emit(`cliprdr: channel mode ${next.id}`);
   }
+
+  // ── guest shell: run whatever is on the prompt line ──────────────────────
+  function runCommand() {
+    const cmd = typed.trim();
+    setTyped("");
+    if (!cmd) {
+      setTermLines((l) => [...l, `ubuntu@${guest.name}:~$`].slice(-9));
+      return;
+    }
+    const out: string[] = [`ubuntu@${guest.name}:~$ ${cmd}`];
+    const snap = cmd.match(/^sudo\s+snap\s+install\s+(\S+)/);
+    const apt = cmd.match(/^sudo\s+apt(?:-get)?\s+install\s+(?:-y\s+)?(\S+)/);
+    if (snap) {
+      out.push(`Download snap "${snap[1]}" (4021) from Snap Store`, `${snap[1]} 128.0 from Mozilla✓ installed`);
+      emit(`snapd: ${snap[1]} installed in ${guest.name}`);
+    } else if (apt) {
+      out.push(`Reading package lists... Done`, `Setting up ${apt[1]} ...`, `Processing triggers for desktop-file-utils ...`);
+      emit(`dpkg: ${apt[1]} configured in ${guest.name}`);
+    } else if (cmd === "clear") {
+      setTermLines([]);
+      return;
+    } else if (cmd.startsWith("echo ")) {
+      out.push(cmd.slice(5));
+    } else if (cmd === "pwd") {
+      out.push("/home/ubuntu");
+    } else if (cmd === "ls") {
+      out.push("Desktop  Documents  Downloads  Pictures  .xinitrc");
+    } else {
+      out.push(`${cmd.split(" ")[0]}: command executed`);
+    }
+    setTermLines((l) => [...l, ...out].slice(-9));
+  }
+
+  // ── cut / copy from the remote desktop into the cliprdr channel ──────────
+  function clipPayload(label: string | null) {
+    if (label) return DESKTOP_ICONS.find((i) => i.label === label)?.path ?? label;
+    return typed || clipGuest;
+  }
+
+  async function copyToChannel(label: string | null, cut = false) {
+    const payload = clipPayload(label);
+    if (!payload) return;
+    setClipGuest(payload);
+    const bytes = new Blob([payload]).size;
+    if (guestToHost) {
+      try {
+        await navigator.clipboard.writeText(payload);
+      } catch {
+        /* host clipboard may be permission-gated; channel still holds the data */
+      }
+    }
+    if (cut && label) {
+      setCutIcon(label);
+      emit(`cliprdr: cut · ${payload} (${bytes} B) staged on channel`);
+    } else {
+      emit(`cliprdr: copy · ${payload} (${bytes} B) → clipboard channel${guestToHost ? " + host" : ""}`);
+    }
+    setClipXfer(`${cut ? "cut" : "copy"} · ${bytes} B · UTF8_STRING`);
+    setMenu(null);
+  }
+
+  function pasteToTerminal() {
+    const payload = clipGuest;
+    if (!payload) return;
+    setTyped((t) => (t + payload).slice(-48));
+    setTopWin("term");
+    setClipXfer(`paste → terminal · ${new Blob([payload]).size} B`);
+    emit(`cliprdr: paste · ${payload} → ubuntu@${guest.name} prompt`);
+    if (cutIcon) {
+      setTrashed((prev) => (prev.includes(cutIcon) ? prev : [...prev, cutIcon]));
+      setCutIcon(null);
+    }
+    setMenu(null);
+  }
+
+  // desktop-side cut/copy shortcuts (Ctrl+C / Ctrl+X) while the grab is held
+  useEffect(() => {
+    if (!done || !keyboardLive) return;
+    function onKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "c") void copyToChannel(selected);
+      else if (e.key === "x") void copyToChannel(selected, true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+
 
   function toggleGrab() {
     if (grabbed) {
@@ -363,10 +458,24 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           onMouseMove={move}
           onMouseUp={endDrag}
           onMouseLeave={endDrag}
+          onContextMenu={(e) => {
+            if (!mouseLive) return;
+            e.preventDefault();
+            const r = frameRef.current?.getBoundingClientRect();
+            if (!r) return;
+            setSelected(null);
+            setMenu({
+              x: ((e.clientX - r.left) / r.width) * 100,
+              y: ((e.clientY - r.top) / r.height) * 100,
+              label: null,
+            });
+          }}
           onClick={() => {
+            setMenu(null);
             if (done && !grabbed) toggleGrab();
             else if (mouseLive) setSelected(null);
           }}
+
           className={`relative aspect-video bg-[#0a141f] overflow-hidden font-mono select-none ${
             mouseLive ? "cursor-none" : grabbed ? "cursor-not-allowed" : "cursor-pointer"
           }`}
@@ -413,6 +522,20 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     type="button"
                     disabled={!mouseLive}
                     style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!mouseLive) return;
+                      setSelected(icon.label);
+                      const r = frameRef.current?.getBoundingClientRect();
+                      if (!r) return;
+                      setMenu({
+                        x: ((e.clientX - r.left) / r.width) * 100,
+                        y: ((e.clientY - r.top) / r.height) * 100,
+                        label: icon.label,
+                      });
+                    }}
+
                     onMouseDown={(e) => {
                       if (!mouseLive) return;
                       e.stopPropagation();
@@ -524,13 +647,37 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                   <span className="h-1.5 w-1.5 rounded-full bg-mint/70" />
                   <span className="ml-1.5">ubuntu@{guest.name}: ~</span>
                 </div>
-                <div className="p-2 leading-4 text-[#a8e6a3]">
-                  <p>ubuntu@{guest.name}:~$ xfce4-session-logout --version</p>
-                  <p className="text-[#c8d6e5]">xfce4-session 4.18.3 (Xfce 4.18)</p>
+                <div
+                  className="p-2 leading-4 text-[#a8e6a3]"
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const r = frameRef.current?.getBoundingClientRect();
+                    if (!r) return;
+                    setMenu({
+                      x: ((e.clientX - r.left) / r.width) * 100,
+                      y: ((e.clientY - r.top) / r.height) * 100,
+                      label: null,
+                    });
+                  }}
+                >
+                  {termLines.length === 0 ? (
+                    <>
+                      <p>ubuntu@{guest.name}:~$ xfce4-session-logout --version</p>
+                      <p className="text-[#c8d6e5]">xfce4-session 4.18.3 (Xfce 4.18)</p>
+                    </>
+                  ) : (
+                    termLines.map((l, i) => (
+                      <p key={`${l}-${i}`} className={l.includes("$ ") ? "" : "text-[#c8d6e5]"}>
+                        {l}
+                      </p>
+                    ))
+                  )}
                   <p>
                     ubuntu@{guest.name}:~$ {typed}
                     <span className="animate-pulse">▌</span>
                   </p>
+
                   {!keyboard.attached ? (
                     <p className="text-amber">input: no keyboard on bus — attach ⌨ to type</p>
                   ) : !grabbed ? (
@@ -544,7 +691,48 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="flex-1" />
                 <span>ws 1 · {conn.rdpTarget}</span>
               </div>
+              {/* xfdesktop context menu — cut / copy / paste over the cliprdr channel */}
+              {menu && (
+                <div
+                  style={{ left: `${Math.min(menu.x, 72)}%`, top: `${Math.min(menu.y, 70)}%` }}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="absolute z-50 w-44 rounded-md bg-[#16273a]/98 ring-1 ring-[#3d5a7a] shadow-2xl py-1 text-[10px] text-[#c8d6e5]"
+                >
+                  <p className="px-2 pb-1 text-[9px] text-[#8fa8c0] truncate border-b border-[#3d5a7a]/60">
+                    {menu.label ?? "terminal"} · cliprdr
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void copyToChannel(menu.label)}
+                    className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                  >
+                    Copy <span className="float-right text-[#8fa8c0]">Ctrl+C</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyToChannel(menu.label, true)}
+                    className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                  >
+                    Cut <span className="float-right text-[#8fa8c0]">Ctrl+X</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!clipGuest}
+                    onClick={pasteToTerminal}
+                    className="w-full text-left px-2 py-1 hover:bg-[#2e4258] disabled:opacity-40"
+                  >
+                    Paste to terminal <span className="float-right text-[#8fa8c0]">Ctrl+V</span>
+                  </button>
+                  {clipGuest && (
+                    <p className="px-2 pt-1 text-[9px] text-[#7ec8ff] truncate border-t border-[#3d5a7a]/60">
+                      clip: {clipGuest}
+                    </p>
+                  )}
+                </div>
+              )}
               {/* remote cursor */}
+
               {mouseLive && (
                 <div
                   className="absolute h-2.5 w-2.5 rounded-full bg-neon/90 shadow-[0_0_8px_rgba(120,220,255,0.9)] pointer-events-none transition-[left,top] duration-75"
