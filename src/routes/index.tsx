@@ -402,9 +402,71 @@ function Console() {
     runPlanSteps(signed, guest.id, tpl.diskGb);
   }
 
+  /** Apply one build-plan step to real console state (not just a log line). */
+  function executeStep(line: string, guestId: string, hostId: string) {
+    const guestPatch = (patch: Partial<Guest>) =>
+      setGuests((prev) => prev.map((g) => (g.id === guestId ? { ...g, ...patch } : g)));
+
+    // ---- host OS layer ----
+    if (/^host exec/.test(line)) {
+      const pkgs = /apt-get install -y (?<list>.+)$/.exec(line)?.groups?.["list"];
+      if (pkgs) {
+        const list = pkgs.split(/\s+/).filter(Boolean);
+        setHostPackages((prev) => ({
+          ...prev,
+          [hostId]: Array.from(new Set([...(prev[hostId] ?? []), ...list])),
+        }));
+        if (list.includes("lightdm")) {
+          setHostLightdm((prev) => (prev.includes(hostId) ? prev : [...prev, hostId]));
+        }
+        setVms((prev) =>
+          prev.map((v) =>
+            v.id === hostId
+              ? { ...v, status: v.status === "stopped" ? "live" : v.status, mem: Math.min(96, v.mem + 3), diskIo: v.diskIo + 8 }
+              : v,
+          ),
+        );
+      }
+      if (/xrdp\.service/.test(line)) {
+        setHostRdp((prev) => (prev.includes(hostId) ? prev : [...prev, hostId]));
+      }
+      return;
+    }
+
+    // ---- guest layer ----
+    if (/VBoxManage createvm/.test(line)) guestPatch({ status: "installing" });
+    if (/setextradata .* spectrum\/base44 (?<sig>\S+)/.test(line)) {
+      const sig = /spectrum\/base44 (\S+)/.exec(line)?.[1];
+      if (sig) guestPatch({ signature: sig });
+    }
+    if (/GUI\/Autostart on/.test(line)) guestPatch({ autostart: true });
+    if (/^guest exec · sudo apt-get install -y (?<pkg>\S+)/.test(line)) {
+      const pkg = /install -y (\S+)/.exec(line)?.[1];
+      const id = (["firefox", "chromium", "google-chrome"] as BrowserId[]).find(
+        (b) => pkg && browserPackage(b) === pkg,
+      );
+      if (id) {
+        setGuestBrowsers((prev) => ({
+          ...prev,
+          [guestId]: Array.from(new Set([...(prev[guestId] ?? []), id])),
+        }));
+      }
+    }
+    if (/--vrde on/.test(line)) {
+      setVms((prev) =>
+        prev.map((v) => (v.id === hostId ? { ...v, netMbps: v.netMbps + 25 } : v)),
+      );
+    }
+  }
+
   function runPlanSteps(plan: ProvisionPlan, guestId: string, diskGb?: number) {
+    const guest = guests.find((g) => g.id === guestId);
+    const hostId = guest?.hostId ?? selected.id;
     plan.steps.forEach((line, i) => {
-      setTimeout(() => push(makeLog("net", line)), i * 220);
+      setTimeout(() => {
+        push(makeLog("net", line));
+        executeStep(line, guestId, hostId);
+      }, i * 220);
     });
     setTimeout(
       () => {
@@ -423,6 +485,7 @@ function Console() {
       plan.steps.length * 220 + 600,
     );
   }
+
 
 
 
