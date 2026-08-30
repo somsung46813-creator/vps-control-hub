@@ -58,13 +58,15 @@ const DESKTOP_ICONS: Array<{
     entries: ["bin/", "etc/", "home/", "var/", "usr/"],
   },
   { label: "Trash", glyph: "🗑", path: "trash:///", entries: [] },
-  {
-    label: "Firefox",
-    glyph: "🦊",
-    path: "/usr/lib/firefox/firefox",
-    entries: ["firefox", "firefox-bin", "omni.ja", "browser/", "defaults/"],
-  },
 ];
+
+/** Appears on the desktop after Firefox is installed (apt/snap or the one-click installer). */
+const FIREFOX_ICON = {
+  label: "Firefox",
+  glyph: "🦊",
+  path: "/usr/lib/firefox/firefox",
+  entries: ["firefox", "firefox-bin", "omni.ja", "browser/", "defaults/"],
+};
 
 /** Appears on the desktop only after `cp /usr/share/applications/google-chrome.desktop ~/Desktop/`. */
 const CHROME_ICON = {
@@ -108,6 +110,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   /** null = shortcut not copied yet; "noexec" = copied but not chmod +x; "exec" = launchable */
   const [chromeShortcut, setChromeShortcut] = useState<null | "noexec" | "exec">(null);
   const [chromiumInstalled, setChromiumInstalled] = useState(false);
+  const [firefoxInstalled, setFirefoxInstalled] = useState(false);
+  const [installingFox, setInstallingFox] = useState(false);
   const [rdpGen, setRdpGen] = useState(0); // bumped when the RDP stack is reinstalled
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
@@ -271,6 +275,29 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }
 
   // ── guest shell: run whatever is on the prompt line ──────────────────────
+  // one-click Firefox install: runs the apt sequence and drops the launchable icon
+  function installFirefox() {
+    if (firefoxInstalled || installingFox) return;
+    setInstallingFox(true);
+    emit("apt: installing firefox · resolving dependencies");
+    setTermLines((l) =>
+      [
+        ...l,
+        "ubuntu@vectorad:~$ sudo apt install -y firefox",
+        "Reading package lists... Done",
+        "Setting up firefox ...",
+        "Processing triggers for desktop-file-utils ...",
+      ].slice(-9),
+    );
+    setTimeout(() => {
+      setFirefoxInstalled(true);
+      setInstallingFox(false);
+      setTrashed((prev) => prev.filter((l) => l !== "Firefox"));
+      emit("gio: firefox.desktop registered · launchable icon added to desktop");
+      setTermLines((l) => [...l, "# firefox installed — double-click the 🦊 icon to launch"].slice(-9));
+    }, 1400);
+  }
+
   // tear down and rebuild the VRDE/xrdp stack, then replay the RDP handshake
   function reinstallRdp(via: string) {
     emit(`apt: ${via} · purging xrdp + VRDE extension pack`);
@@ -323,9 +350,21 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     } else if (snap) {
       out.push(`Download snap "${snap[1]}" (4021) from Snap Store`, `${snap[1]} 128.0 from Mozilla✓ installed`);
       emit(`snapd: ${snap[1]} installed in ${guest.name}`);
+      if (/^firefox$/.test(snap[1]!)) {
+        setFirefoxInstalled(true);
+        setTrashed((prev) => prev.filter((l) => l !== "Firefox"));
+        out.push("# firefox installed — double-click the 🦊 icon to launch");
+        emit("gio: firefox.desktop registered · launchable icon added to desktop");
+      }
     } else if (apt) {
       out.push(`Reading package lists... Done`, `Setting up ${apt[1]} ...`, `Processing triggers for desktop-file-utils ...`);
       emit(`dpkg: ${apt[1]} configured in ${guest.name}`);
+      if (/^firefox(-esr)?$/.test(apt[1]!)) {
+        setFirefoxInstalled(true);
+        setTrashed((prev) => prev.filter((l) => l !== "Firefox"));
+        out.push("# firefox installed — double-click the 🦊 icon to launch");
+        emit("gio: firefox.desktop registered · launchable icon added to desktop");
+      }
       if (/^(chromium|chromium-browser)$/.test(apt[1]!)) {
         setChromiumInstalled(true);
         setTrashed((prev) => prev.filter((l) => l !== "Chromium"));
@@ -981,7 +1020,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="text-mint">●</span>
               </div>
               {/* desktop icons — click to select, double click to open, drag to move / drop on Trash */}
-              {[...DESKTOP_ICONS, ...(chromiumInstalled ? [CHROMIUM_ICON] : []), ...(chromeShortcut ? [CHROME_ICON] : [])]
+              {[...DESKTOP_ICONS, ...(firefoxInstalled ? [FIREFOX_ICON] : []), ...(chromiumInstalled ? [CHROMIUM_ICON] : []), ...(chromeShortcut ? [CHROME_ICON] : [])]
                 .filter((i) => !trashed.includes(i.label))
                 .map((icon) => {
                 const p = pos[icon.label] ?? { x: 3, y: 14 };
@@ -1730,6 +1769,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
             >
               ⟳ reinstall rdp
             </button>
+            {firefoxInstalled ? (
+              <span className="text-mint">🦊 firefox installed</span>
+            ) : (
+              <button
+                type="button"
+                title="sudo apt install -y firefox — installs Firefox and adds a launchable desktop icon"
+                onClick={installFirefox}
+                disabled={installingFox || !done}
+                className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 disabled:opacity-40 transition"
+              >
+                {installingFox ? "installing firefox…" : "🦊 install firefox"}
+              </button>
+            )}
           </span>
           <span>
             ptr {cursor.x},{cursor.y} ·{" "}
