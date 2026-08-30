@@ -1522,7 +1522,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                           disabled={!clipGuest}
                           onClick={() => {
                             emit(
-                              `thunar: paste ${clipGuest} → ${DESKTOP_ICONS.find((i) => i.label === openWin)?.path ?? "~"}`,
+                              `thunar: paste ${clipGuest} → ${openWin === "Trash" ? "trash:///" : fmPath}`,
                             );
                             setFmMenu(null);
                           }}
