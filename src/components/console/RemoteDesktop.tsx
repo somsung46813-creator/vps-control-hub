@@ -130,6 +130,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [foxHtml, setFoxHtml] = useState<string | null>(null);
   const [foxLive, setFoxLive] = useState(false);
   const [foxReload, setFoxReload] = useState(0);
+  const [foxError, setFoxError] = useState<{ message: string; resolutions: string[] } | null>(null);
 
 
   const [trashed, setTrashed] = useState<string[]>([]);
