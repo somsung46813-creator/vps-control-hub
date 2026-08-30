@@ -259,3 +259,21 @@
 .console-cards > * {
   min-width: 0;
 }
+
+/* phone: denser cards (2-up gauges) and tighter gutters */
+@media (max-width: 40rem) {
+  :root {
+    --console-min-card: 9rem;
+    --console-pad-x: 0.875rem;
+    --console-pad-y: 0.875rem;
+    --console-gap: 0.625rem;
+  }
+}
+
+/* ultrawide: allow a third rail of panels without stretching cards */
+@media (min-width: 110rem) {
+  :root {
+    --console-split: 1.2fr 1fr;
+    --console-min-col: 30rem;
+  }
+}
