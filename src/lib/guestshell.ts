@@ -57,9 +57,54 @@ const APT_PACKAGES: Record<string, { desc: string; sizeMb: number; deps: string[
     sizeMb: 1840,
     deps: ["xorg", "gnome-shell", "gdm3", "nautilus", "ubuntu-session"],
   },
+  xfce4: {
+    desc: "XFCE lightweight desktop environment",
+    sizeMb: 312,
+    deps: [
+      "xfce4-session", "xfwm4", "xfdesktop4", "xfce4-panel", "thunar",
+      "xfce4-terminal", "xfce4-settings", "gtk3-engines-xfce", "xfconf",
+    ],
+  },
+  "xfce4-goodies": {
+    desc: "XFCE panel plugins and extra applications",
+    sizeMb: 84,
+    deps: ["xfce4-whiskermenu-plugin", "xfce4-taskmanager", "xfce4-screenshooter", "mousepad", "ristretto"],
+  },
+  lightdm: {
+    desc: "Lightweight display manager",
+    sizeMb: 42,
+    deps: ["lightdm-gtk-greeter", "accountsservice"],
+  },
   nginx: { desc: "high performance web server", sizeMb: 12, deps: ["nginx-common", "nginx-core"] },
   docker: { desc: "container runtime", sizeMb: 96, deps: ["containerd", "runc", "docker-cli"] },
 };
+
+const DESKTOPS: Record<string, { session: string; startCmd: string }> = {
+  xfce4: { session: "xfce4-session", startCmd: "startxfce4" },
+  "ubuntu-desktop": { session: "gnome-shell", startCmd: "gnome-session" },
+};
+
+function desktopFor(guest: Guest): { pkg: string; session: string; startCmd: string } | null {
+  for (const [pkg, meta] of Object.entries(DESKTOPS)) {
+    if (installed(guest).has(pkg)) return { pkg, ...meta };
+  }
+  return null;
+}
+
+/** Guests configured to auto-launch their desktop session from startx (~/.xinitrc). */
+const autostartGuests = new Set<string>();
+
+function writeXinitrc(guest: Guest, conn: GuestConn): string[] {
+  const de = desktopFor(guest);
+  if (!de) return ["no desktop environment installed — install one first: sudo apt install xfce4"];
+  autostartGuests.add(guest.id);
+  return [
+    `$ echo "${de.startCmd}" > ~/.xinitrc`,
+    `$ chmod +x ~/.xinitrc`,
+    `~/.xinitrc now runs: ${de.startCmd}`,
+    `Autostart configured — every \`startx\` will boot straight into ${de.session}.`,
+  ];
+}
 
 function aptInstall(pkg: string, guest: Guest): string[] {
   const meta = APT_PACKAGES[pkg] ?? { desc: pkg, sizeMb: 8, deps: [`${pkg}-common`] };
