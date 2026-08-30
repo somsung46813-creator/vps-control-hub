@@ -55,7 +55,7 @@ export function seedFiles(vmId: string): HostFile[] {
     ["fleet-agent.bin", 4194304, { r: true, w: false, x: true }, "vantage"],
   ];
   return spec.map(([name, size, perms, owner], i) => ({
-    id: `seed-${i + 1}`,
+    id: `${vmId}-seed-${i + 1}`,
     name,
     size,
     vmId,
