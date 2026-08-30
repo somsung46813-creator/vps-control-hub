@@ -360,6 +360,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       const r = frameRef.current?.getBoundingClientRect();
                       if (!r) return;
                       setDrag({
+                        kind: "icon",
+
                         label: icon.label,
                         dx: ((e.clientX - r.left) / r.width) * 100 - p.x,
                         dy: ((e.clientY - r.top) / r.height) * 100 - p.y,
