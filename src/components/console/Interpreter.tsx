@@ -144,9 +144,30 @@ export function Interpreter({
             </p>
             <p className="text-[10px] text-dim">
               desktop {plan.desktop ? "xfce4 + lightdm" : "headless"} · autostart{" "}
-              {plan.autostart ? "on" : "off"} · digest{" "}
+              {plan.autostart ? "on" : "off"} · key{" "}
               <span className="text-lantern">{plan.digest}</span>
             </p>
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <span className="text-[10px] text-dim">browsers</span>
+              {(["firefox", "chromium", "google-chrome"] as BrowserId[]).map((b) => {
+                const on = plan.browsers.includes(b);
+                return (
+                  <button
+                    key={b}
+                    onClick={() => toggleBrowser(b)}
+                    aria-pressed={on}
+                    className={`px-1.5 py-0.5 rounded text-[10px] ring-1 transition ${
+                      on
+                        ? "bg-mint/15 text-mint ring-mint/40"
+                        : "text-dim/70 ring-railedge hover:text-ink"
+                    }`}
+                  >
+                    {browserLabel(b)}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={runProvision}
