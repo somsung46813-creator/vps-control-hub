@@ -271,6 +271,18 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }
 
   // ── guest shell: run whatever is on the prompt line ──────────────────────
+  // tear down and rebuild the VRDE/xrdp stack, then replay the RDP handshake
+  function reinstallRdp(via: string) {
+    emit(`apt: ${via} · purging xrdp + VRDE extension pack`);
+    setDone(false);
+    setPhase(0);
+    setRdpGen((g) => g + 1);
+    setTimeout(
+      () => emit("xrdp: VRDE server reinstalled · TLS certificate regenerated · renegotiating handshake"),
+      700,
+    );
+  }
+
   function runCommand() {
     const cmd = typed.trim();
     setTyped("");
