@@ -868,22 +868,134 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       }}
                       className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
                     />
-                    <span className="ml-1.5 truncate">🦊 {foxTab.startsWith("file://") ? foxTab.split("/").pop() : "New Tab"} — Mozilla Firefox</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[#3d5a7a]/60">
-                    <span className="text-[#8fa8c0]">←</span>
-                    <span className="text-[#8fa8c0]">→</span>
-                    <span className="text-[#8fa8c0]">⟳</span>
-                    <span className="flex-1 truncate rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff]">
-                      {foxTab}
+                    <span className="ml-1.5 truncate">
+                      🦊 {foxLoading ? "Loading…" : foxResp?.title ?? "New Tab"} — Mozilla Firefox
                     </span>
                   </div>
-                  <div className="p-3 leading-5 text-[#c8d6e5]">
-                    <p className="text-[#7ec8ff] text-[11px] font-semibold">Firefox 128.0 (snap)</p>
-                    <p className="text-[#8fa8c0]">
-                      Session restored on {guest.name} · GPU compositing active
-                    </p>
-                    <p className="mt-1">🔍 Search with Google or enter address</p>
+                  {/* navigation toolbar */}
+                  <div
+                    className="flex items-center gap-1 px-2 py-1 border-b border-[#3d5a7a]/60"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      title="back"
+                      disabled={foxIdx <= 0}
+                      onClick={foxBack}
+                      className="text-[#8fa8c0] px-1 disabled:opacity-30 hover:text-[#7ec8ff]"
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      title="forward"
+                      disabled={foxIdx >= foxHist.length - 1}
+                      onClick={foxForward}
+                      className="text-[#8fa8c0] px-1 disabled:opacity-30 hover:text-[#7ec8ff]"
+                    >
+                      →
+                    </button>
+                    <button
+                      type="button"
+                      title="reload"
+                      onClick={() => setFoxReload((n) => n + 1)}
+                      className="text-[#8fa8c0] px-1 hover:text-[#7ec8ff]"
+                    >
+                      ⟳
+                    </button>
+                    <button
+                      type="button"
+                      title="home"
+                      onClick={() => goFox(FOX_HOME)}
+                      className="text-[#8fa8c0] px-1 hover:text-[#7ec8ff]"
+                    >
+                      ⌂
+                    </button>
+                    <form
+                      className="flex-1 min-w-0"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        goFox(foxUrlInput);
+                      }}
+                    >
+                      <input
+                        value={foxUrlInput}
+                        onChange={(e) => setFoxUrlInput(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        spellCheck={false}
+                        aria-label="Address bar"
+                        placeholder="Search with DuckDuckGo or enter address"
+                        className="w-full rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff] outline-none ring-1 ring-transparent focus:ring-[#7ec8ff]/50"
+                      />
+                    </form>
+                    <button
+                      type="button"
+                      title="toggle HTTP view (network inspector)"
+                      onClick={() => setHttpView((v) => !v)}
+                      className={`px-1.5 py-0.5 rounded ring-1 ${
+                        httpView
+                          ? "text-mint ring-mint/50 bg-mint/10"
+                          : "text-[#8fa8c0] ring-[#3d5a7a] hover:text-[#7ec8ff]"
+                      }`}
+                    >
+                      HTTP
+                    </button>
+                  </div>
+                  {/* viewport */}
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] max-h-[52%]">
+                    <div className="p-3 leading-5 text-[#c8d6e5] overflow-y-auto">
+                      {foxLoading || !foxResp ? (
+                        <p className="text-[#8fa8c0]">Connecting to {normalizeUrl(foxTab)}…</p>
+                      ) : (
+                        <>
+                          <p className="text-[#7ec8ff] text-[11px] font-semibold">{foxResp.heading}</p>
+                          {foxResp.lines.map((l) => (
+                            <p key={l} className="text-[#8fa8c0]">{l}</p>
+                          ))}
+                          {foxResp.links.map((lk) => (
+                            <button
+                              key={lk.href}
+                              type="button"
+                              onClick={() => goFox(lk.href)}
+                              className="block mt-1 text-left text-[#7ec8ff] underline underline-offset-2 hover:text-mint"
+                            >
+                              {lk.label}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                    {httpView && (
+                      <div className="md:w-56 border-t md:border-t-0 md:border-l border-[#3d5a7a]/60 p-2 overflow-y-auto text-[9px] leading-4">
+                        <p className="text-[#8fa8c0] uppercase tracking-wider">network · headers</p>
+                        {foxResp && !foxLoading ? (
+                          <>
+                            <p className={foxResp.status === 200 ? "text-mint" : "text-amber"}>
+                              {foxResp.status} {foxResp.statusText} · {foxResp.protocol}
+                            </p>
+                            <p className="text-[#8fa8c0] truncate">{foxResp.remote}</p>
+                            <p className="text-[#8fa8c0] truncate">{foxResp.tls}</p>
+                            <p className="text-[#8fa8c0]">
+                              ttfb {foxResp.ttfbMs}ms · total {foxResp.totalMs}ms · {foxResp.bytes} B
+                            </p>
+                            <p className="mt-1.5 text-[#7ec8ff]">▸ request</p>
+                            {foxResp.requestHeaders.map((h) => (
+                              <p key={h.name} className="text-[#8fa8c0] truncate">
+                                <span className="text-[#c8d6e5]">{h.name}:</span> {h.value}
+                              </p>
+                            ))}
+                            <p className="mt-1.5 text-[#7ec8ff]">▾ response</p>
+                            {foxResp.responseHeaders.map((h) => (
+                              <p key={h.name} className="text-[#8fa8c0] truncate">
+                                <span className="text-[#c8d6e5]">{h.name}:</span> {h.value}
+                              </p>
+                            ))}
+                          </>
+                        ) : (
+                          <p className="text-[#8fa8c0]">waiting for response…</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
