@@ -26,6 +26,27 @@ const HANDSHAKE = [
   "desktop session resumed · XFCE",
 ];
 
+const DESKTOP_ICONS: Array<{
+  label: string;
+  glyph: string;
+  path: string;
+  entries: string[];
+}> = [
+  {
+    label: "Home",
+    glyph: "📁",
+    path: "/home/ubuntu",
+    entries: ["Desktop/", "Documents/", "Downloads/", ".xinitrc", ".bashrc"],
+  },
+  {
+    label: "File System",
+    glyph: "📁",
+    path: "/",
+    entries: ["bin/", "etc/", "home/", "var/", "usr/"],
+  },
+  { label: "Trash", glyph: "🗑", path: "trash:///", entries: [] },
+];
+
 export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const conn = guestConn(guest, hostIp);
   const [phase, setPhase] = useState(0); // handshake progress
