@@ -582,10 +582,81 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }
 
   function winStyle(label: string, width: string): React.CSSProperties {
-    if (ws(label) === "max") return { left: "0%", top: "4.5%", width: "100%" };
+    if (ws(label) === "max")
+      return { left: "0%", top: "4.5%", width: "100%", height: "90%", overflow: "hidden" };
     const p = wp(label);
-    return { left: `${p.x}%`, top: `${p.y}%`, width };
+    const s = winSize[label];
+    return {
+      left: `${p.x}%`,
+      top: `${p.y}%`,
+      width: s ? `${s.w}%` : width,
+      ...(s ? { height: `${s.h}%`, overflow: "hidden" } : {}),
+    };
   }
+
+  function startResize(e: React.MouseEvent, label: string, edge: string) {
+    if (!mouseLive || ws(label) === "max") return;
+    e.stopPropagation();
+    e.preventDefault();
+    const r = frameRef.current?.getBoundingClientRect();
+    const el = (e.currentTarget as HTMLElement).parentElement;
+    if (!r || !el) return;
+    const b = el.getBoundingClientRect();
+    setTopWin(label);
+    const p = wp(label);
+    setResize({
+      label,
+      edge,
+      x0: ((e.clientX - r.left) / r.width) * 100,
+      y0: ((e.clientY - r.top) / r.height) * 100,
+      w0: (b.width / r.width) * 100,
+      h0: (b.height / r.height) * 100,
+      px0: p.x,
+      py0: p.y,
+      moved: false,
+    });
+  }
+
+  function endResize() {
+    if (!resize) return;
+    if (resize.moved) {
+      const s = winSize[resize.label];
+      emit(
+        `xfwm4: resize end · ${resize.label} → ${Math.round(s?.w ?? 0)}%×${Math.round(s?.h ?? 0)}% (configure notify)`,
+      );
+    }
+    setResize(null);
+  }
+
+  /** 8-point xfwm4 resize grips: corners + sides. */
+  function ResizeGrips({ label }: { label: string }) {
+    if (ws(label) === "max") return null;
+    const edges: Array<{ e: string; cls: string; cur: string }> = [
+      { e: "n", cls: "left-2 right-2 top-0 h-1.5", cur: "ns-resize" },
+      { e: "s", cls: "left-2 right-2 bottom-0 h-1.5", cur: "ns-resize" },
+      { e: "w", cls: "top-2 bottom-2 left-0 w-1.5", cur: "ew-resize" },
+      { e: "e", cls: "top-2 bottom-2 right-0 w-1.5", cur: "ew-resize" },
+      { e: "nw", cls: "left-0 top-0 w-3 h-3", cur: "nwse-resize" },
+      { e: "ne", cls: "right-0 top-0 w-3 h-3", cur: "nesw-resize" },
+      { e: "sw", cls: "left-0 bottom-0 w-3 h-3", cur: "nesw-resize" },
+      { e: "se", cls: "right-0 bottom-0 w-3 h-3", cur: "nwse-resize" },
+    ];
+    return (
+      <>
+        {edges.map((g) => (
+          <div
+            key={g.e}
+            onMouseDown={(ev) => startResize(ev, label, g.e)}
+            style={{ cursor: g.cur }}
+            className={`absolute z-50 ${g.cls} ${
+              resize?.label === label && resize.edge === g.e ? "bg-neon/40" : "hover:bg-neon/25"
+            }`}
+          />
+        ))}
+      </>
+    );
+  }
+
 
   function minimizeWin(label: string) {
     setWinState((s) => ({ ...s, [label]: "min" }));
