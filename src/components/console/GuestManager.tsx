@@ -15,6 +15,7 @@ type Props = {
   onPower: (guest: Guest, action: "start" | "stop" | "pause") => void;
   onDelete: (guest: Guest) => void;
   onConnect: (guest: Guest) => void;
+  onOpenDesktop: (guest: Guest) => void;
   onToggleAutostart: (guest: Guest) => void;
 };
 
@@ -33,6 +34,7 @@ export function GuestManager({
   onPower,
   onDelete,
   onConnect,
+  onOpenDesktop,
   onToggleAutostart,
 }: Props) {
   const [name, setName] = useState("");
@@ -135,6 +137,14 @@ export function GuestManager({
                     className="px-2 py-1 rounded ring-1 ring-neon/30 bg-neon/10 text-neon hover:bg-neon/20 transition disabled:opacity-30"
                   >
                     connect
+                  </button>
+                  <button
+                    onClick={() => onOpenDesktop(g)}
+                    disabled={g.status !== "running"}
+                    title="Open remote desktop viewer (VRDE)"
+                    className="px-2 py-1 rounded ring-1 ring-mint/30 bg-mint/10 text-mint hover:bg-mint/20 transition disabled:opacity-30"
+                  >
+                    desktop
                   </button>
                   <button
                     onClick={() => onToggleAutostart(g)}
