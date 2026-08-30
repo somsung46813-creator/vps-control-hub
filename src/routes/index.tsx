@@ -21,8 +21,10 @@ import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 import { Interpreter } from "@/components/console/Interpreter";
 import {
+  browserPackage,
   guestKey,
   guestSignature,
+  planForGuest,
   interpreterSource,
   planWithSignature,
   type BrowserId,
@@ -107,6 +109,10 @@ function Console() {
   const [guests, setGuests] = useState<Guest[]>([]);
   /** Host VM ids where lightdm runs on the host OS (display manager beneath the guests). */
   const [hostLightdm, setHostLightdm] = useState<string[]>([]);
+  /** Host VM ids running the xrdp stack. */
+  const [hostRdp, setHostRdp] = useState<string[]>([]);
+  /** Packages installed on the host OS per host VM id. */
+  const [hostPackages, setHostPackages] = useState<Record<string, string[]>>({});
 
 
 
