@@ -458,10 +458,24 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           onMouseMove={move}
           onMouseUp={endDrag}
           onMouseLeave={endDrag}
+          onContextMenu={(e) => {
+            if (!mouseLive) return;
+            e.preventDefault();
+            const r = frameRef.current?.getBoundingClientRect();
+            if (!r) return;
+            setSelected(null);
+            setMenu({
+              x: ((e.clientX - r.left) / r.width) * 100,
+              y: ((e.clientY - r.top) / r.height) * 100,
+              label: null,
+            });
+          }}
           onClick={() => {
+            setMenu(null);
             if (done && !grabbed) toggleGrab();
             else if (mouseLive) setSelected(null);
           }}
+
           className={`relative aspect-video bg-[#0a141f] overflow-hidden font-mono select-none ${
             mouseLive ? "cursor-none" : grabbed ? "cursor-not-allowed" : "cursor-pointer"
           }`}
