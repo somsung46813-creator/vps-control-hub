@@ -712,14 +712,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     />
                     <span className="h-2 w-2 rounded-full bg-amber/70" />
                     <span className="h-2 w-2 rounded-full bg-mint/70" />
-                    <span className="ml-1.5 truncate">🦊 New Tab — Mozilla Firefox</span>
+                    <span className="ml-1.5 truncate">🦊 {foxTab.startsWith("file://") ? foxTab.split("/").pop() : "New Tab"} — Mozilla Firefox</span>
                   </div>
                   <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[#3d5a7a]/60">
                     <span className="text-[#8fa8c0]">←</span>
                     <span className="text-[#8fa8c0]">→</span>
                     <span className="text-[#8fa8c0]">⟳</span>
                     <span className="flex-1 truncate rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff]">
-                      https://start.mozilla.org
+                      {foxTab}
                     </span>
                   </div>
                   <div className="p-3 leading-5 text-[#c8d6e5]">
