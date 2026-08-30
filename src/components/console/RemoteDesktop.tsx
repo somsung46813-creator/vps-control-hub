@@ -822,9 +822,53 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       return;
     }
     setOpenWin(label);
+    setFmPath(icon.path === "trash:///" ? "/" : icon.path);
+    setFmBack([]);
+    setFmView(null);
     setWinState((s) => ({ ...s, thunar: s['thunar'] === "max" ? "max" : "normal" }));
     setTopWin("thunar");
     emit(`thunar: open ${icon.path} · pointer click via ${mouse.bdf}`);
+  }
+
+  /** Open a Thunar entry: directories navigate, files open in the text viewer. */
+  function openFmEntry(entry: string) {
+    const isDir = entry.endsWith("/");
+    const target = fmJoin(fmPath, entry);
+    if (isDir) {
+      setFmBack((s) => [...s, fmPath]);
+      setFmPath(target);
+      setFmSel(null);
+      setFmView(null);
+      emit(`thunar: enter directory ${target} · xdg-open dir`);
+      return;
+    }
+    const text =
+      FM_FILE_TEXT[target] ??
+      `# ${target}\n(binary / ${Math.abs(target.length * 137 + 482) % 900 + 96} bytes) — no text handler, shown as hexdump preview\n00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|`;
+    setFmView({ path: target, text });
+    emit(`xdg-open: ${target} · opened in Thunar text view`);
+  }
+
+  function fmGoBack() {
+    setFmBack((s) => {
+      const prev = s[s.length - 1];
+      if (prev === undefined) return s;
+      setFmPath(prev);
+      setFmSel(null);
+      setFmView(null);
+      emit(`thunar: back → ${prev}`);
+      return s.slice(0, -1);
+    });
+  }
+
+  function fmGoUp() {
+    if (fmPath === "/") return;
+    const up = fmParent(fmPath);
+    setFmBack((s) => [...s, fmPath]);
+    setFmPath(up);
+    setFmSel(null);
+    setFmView(null);
+    emit(`thunar: up → ${up} · cd ..`);
   }
 
   function move(e: React.MouseEvent) {
