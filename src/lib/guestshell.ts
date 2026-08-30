@@ -134,6 +134,12 @@ function aptInstall(pkg: string, guest: Guest): string[] {
   if (pkg === "xorg" || pkg === "xserver-xorg" || pkg === "ubuntu-desktop") {
     lines.push("", "X server installed. Run `startx` to launch the graphical session on this console.");
   }
+  if (DESKTOPS[pkg]) {
+    lines.push(
+      "",
+      `${DESKTOPS[pkg].session} installed. Run \`config autostart\` to make startx launch it automatically.`,
+    );
+  }
   return lines;
 }
 
