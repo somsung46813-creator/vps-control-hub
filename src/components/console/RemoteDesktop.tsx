@@ -66,6 +66,14 @@ const DESKTOP_ICONS: Array<{
   },
 ];
 
+/** Appears on the desktop only after `cp /usr/share/applications/google-chrome.desktop ~/Desktop/`. */
+const CHROME_ICON = {
+  label: "Chrome",
+  glyph: "🌐",
+  path: "/usr/share/applications/google-chrome.desktop",
+  entries: [] as string[],
+};
+
 export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const conn = guestConn(guest, hostIp);
   const [phase, setPhase] = useState(0); // handshake progress
