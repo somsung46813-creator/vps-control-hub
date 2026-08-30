@@ -12,7 +12,7 @@ import type { Vm } from "@/lib/fleet";
 type Props = {
   vm: Vm;
   files: HostFile[];
-  installedPackages: string[];
+  installedPackages?: string[];
   onUpload: (files: FileList) => void;
   onDownload: (file: HostFile) => void;
   onRun: (file: HostFile) => void;
@@ -25,7 +25,7 @@ type Props = {
 export function FileServer({
   vm,
   files,
-  installedPackages,
+  installedPackages = [],
   onUpload,
   onDownload,
   onRun,
