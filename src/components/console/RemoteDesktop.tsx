@@ -377,11 +377,17 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     </span>
                   </div>
                   <div className="p-2 leading-5 text-[#c8d6e5]">
-                    {(DESKTOP_ICONS.find((i) => i.label === openWin)?.entries ?? []).map((f) => (
+                    {(openWin === "Trash"
+                      ? trashed.map((t) => `${t}/`)
+                      : (DESKTOP_ICONS.find((i) => i.label === openWin)?.entries ?? [])
+                    ).map((f) => (
                       <p key={f} className="truncate">
                         <span className="text-[#7ec8ff]">{f.endsWith("/") ? "📁" : "📄"}</span> {f}
                       </p>
                     ))}
+                    {openWin === "Trash" && trashed.length === 0 && (
+                      <p className="text-[#8fa8c0]">Trash is empty — drag an icon onto it</p>
+                    )}
                   </div>
                 </div>
               )}
