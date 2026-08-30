@@ -21,8 +21,10 @@ import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 import { Interpreter } from "@/components/console/Interpreter";
 import {
+  browserPackage,
   guestKey,
   guestSignature,
+  planForGuest,
   interpreterSource,
   planWithSignature,
   type BrowserId,
@@ -107,6 +109,10 @@ function Console() {
   const [guests, setGuests] = useState<Guest[]>([]);
   /** Host VM ids where lightdm runs on the host OS (display manager beneath the guests). */
   const [hostLightdm, setHostLightdm] = useState<string[]>([]);
+  /** Host VM ids running the xrdp stack. */
+  const [hostRdp, setHostRdp] = useState<string[]>([]);
+  /** Packages installed on the host OS per host VM id. */
+  const [hostPackages, setHostPackages] = useState<Record<string, string[]>>({});
 
 
 
@@ -348,6 +354,11 @@ function Console() {
     }, 1600);
   }
 
+  const interpSrc = useMemo(
+    () => interpreterSource(hypervisor.packageName, hypervisor.version),
+    [hypervisor.packageName, hypervisor.version],
+  );
+
   const hostGuests = useMemo(
     () => guests.filter((g) => g.hostId === selected.id),
     [guests, selected.id],
@@ -402,9 +413,71 @@ function Console() {
     runPlanSteps(signed, guest.id, tpl.diskGb);
   }
 
+  /** Apply one build-plan step to real console state (not just a log line). */
+  function executeStep(line: string, guestId: string, hostId: string) {
+    const guestPatch = (patch: Partial<Guest>) =>
+      setGuests((prev) => prev.map((g) => (g.id === guestId ? { ...g, ...patch } : g)));
+
+    // ---- host OS layer ----
+    if (/^host exec/.test(line)) {
+      const pkgs = /apt-get install -y (?<list>.+)$/.exec(line)?.groups?.["list"];
+      if (pkgs) {
+        const list = pkgs.split(/\s+/).filter(Boolean);
+        setHostPackages((prev) => ({
+          ...prev,
+          [hostId]: Array.from(new Set([...(prev[hostId] ?? []), ...list])),
+        }));
+        if (list.includes("lightdm")) {
+          setHostLightdm((prev) => (prev.includes(hostId) ? prev : [...prev, hostId]));
+        }
+        setVms((prev) =>
+          prev.map((v) =>
+            v.id === hostId
+              ? { ...v, status: v.status === "stopped" ? "live" : v.status, mem: Math.min(96, v.mem + 3), diskIo: v.diskIo + 8 }
+              : v,
+          ),
+        );
+      }
+      if (/xrdp\.service/.test(line)) {
+        setHostRdp((prev) => (prev.includes(hostId) ? prev : [...prev, hostId]));
+      }
+      return;
+    }
+
+    // ---- guest layer ----
+    if (/VBoxManage createvm/.test(line)) guestPatch({ status: "installing" });
+    if (/setextradata .* spectrum\/base44 (?<sig>\S+)/.test(line)) {
+      const sig = /spectrum\/base44 (\S+)/.exec(line)?.[1];
+      if (sig) guestPatch({ signature: sig });
+    }
+    if (/GUI\/Autostart on/.test(line)) guestPatch({ autostart: true });
+    if (/^guest exec · sudo apt-get install -y (?<pkg>\S+)/.test(line)) {
+      const pkg = /install -y (\S+)/.exec(line)?.[1];
+      const id = (["firefox", "chromium", "google-chrome"] as BrowserId[]).find(
+        (b) => pkg && browserPackage(b) === pkg,
+      );
+      if (id) {
+        setGuestBrowsers((prev) => ({
+          ...prev,
+          [guestId]: Array.from(new Set([...(prev[guestId] ?? []), id])),
+        }));
+      }
+    }
+    if (/--vrde on/.test(line)) {
+      setVms((prev) =>
+        prev.map((v) => (v.id === hostId ? { ...v, netMbps: v.netMbps + 25 } : v)),
+      );
+    }
+  }
+
   function runPlanSteps(plan: ProvisionPlan, guestId: string, diskGb?: number) {
+    const guest = guests.find((g) => g.id === guestId);
+    const hostId = guest?.hostId ?? selected.id;
     plan.steps.forEach((line, i) => {
-      setTimeout(() => push(makeLog("net", line)), i * 220);
+      setTimeout(() => {
+        push(makeLog("net", line));
+        executeStep(line, guestId, hostId);
+      }, i * 220);
     });
     setTimeout(
       () => {
@@ -425,6 +498,41 @@ function Console() {
   }
 
 
+
+
+  /** Plan per guest, keyed by the guest's own base44 signature. */
+  const guestPlans = useMemo(() => {
+    const out: Record<string, ProvisionPlan> = {};
+    for (const g of hostGuests) out[g.id] = planForGuest(g, interpSrc, guestBrowsers[g.id] ?? []);
+    return out;
+  }, [hostGuests, interpSrc, guestBrowsers]);
+
+  /** Re-run the whole plan against the existing guest (host layer included). */
+  function rebuildGuest(guest: Guest) {
+    const plan = guestPlans[guest.id] ?? planForGuest(guest, interpSrc, guestBrowsers[guest.id] ?? []);
+    push(makeLog("net", `spectrum interpreter · rebuilding ${guest.name} · key ${plan.digest}`));
+    setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, status: "installing" } : g)));
+    runPlanSteps(plan, guest.id, guest.diskGb);
+  }
+
+  /** Destroy and re-create the guest from its plan with a freshly signed key. */
+  function reprovisionGuest(guest: Guest) {
+    const browsers = guestBrowsers[guest.id] ?? [];
+    const base = planForGuest(guest, interpSrc, browsers);
+    push(makeLog("warn", `VBoxManage unregistervm ${guest.name} --delete · re-provisioning`));
+    setGuests((prev) => prev.filter((g) => g.id !== guest.id));
+    const fresh = makeGuest(guest.name, guest.hostId, guest, stamp());
+    fresh.autostart = guest.autostart;
+    fresh.signature = guestKey(
+      { name: fresh.name, spec: `${guest.osType}|${guest.memMb}M|${guest.diskGb}G` },
+      interpSrc,
+      fresh.id,
+    );
+    const signed = planWithSignature(base, interpSrc, fresh.signature);
+    setGuests((prev) => [fresh, ...prev]);
+    setGuestBrowsers((prev) => ({ ...prev, [fresh.id]: browsers }));
+    runPlanSteps(signed, fresh.id, guest.diskGb);
+  }
 
   function powerGuest(guest: Guest, action: "start" | "stop" | "pause") {
     const next =
@@ -580,6 +688,11 @@ function Console() {
               onConnect={connectGuest}
               onOpenDesktop={openDesktop}
               onToggleAutostart={toggleGuestAutostart}
+              plans={guestPlans}
+              hostRdp={hostRdp.includes(selected.id)}
+              hostPackages={hostPackages[selected.id] ?? []}
+              onRebuild={rebuildGuest}
+              onReprovision={reprovisionGuest}
             />
 
           </div>
