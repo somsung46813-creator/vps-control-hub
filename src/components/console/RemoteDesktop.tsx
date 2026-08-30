@@ -152,6 +152,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     }
   }
 
+  function openIcon(label: string) {
+    const icon = DESKTOP_ICONS.find((i) => i.label === label);
+    if (!icon) return;
+    setSelected(label);
+    setOpenWin(label);
+    emit(`thunar: open ${icon.path} · pointer click via ${mouse.bdf}`);
+  }
+
   function move(e: React.MouseEvent) {
     const el = frameRef.current;
     if (!el || !mouseLive) return;
