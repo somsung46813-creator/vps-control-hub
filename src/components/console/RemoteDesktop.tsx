@@ -369,6 +369,55 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     }
   }
 
+  /** navigate the browser to a url (pushes session history) */
+  function goFox(raw: string) {
+    const url = normalizeUrl(raw);
+    setFoxHist((h) => [...h.slice(0, foxIdx + 1), url]);
+    setFoxIdx((i) => i + 1);
+    setFoxTab(url);
+    setFoxUrlInput(url);
+  }
+
+  function foxBack() {
+    if (foxIdx <= 0) return;
+    const url = foxHist[foxIdx - 1]!;
+    setFoxIdx(foxIdx - 1);
+    setFoxTab(url);
+    setFoxUrlInput(url);
+    emit("firefox: session history back");
+  }
+
+  function foxForward() {
+    if (foxIdx >= foxHist.length - 1) return;
+    const url = foxHist[foxIdx + 1]!;
+    setFoxIdx(foxIdx + 1);
+    setFoxTab(url);
+    setFoxUrlInput(url);
+    emit("firefox: session history forward");
+  }
+
+  // network engine — fetch the current tab whenever it changes
+  useEffect(() => {
+    if (!foxWin) return;
+    let alive = true;
+    setFoxLoading(true);
+    const ex = simulateHttp(foxTab);
+    emit(`firefox: ${ex.method} ${ex.url} · ${ex.protocol}`);
+    const t = setTimeout(() => {
+      if (!alive) return;
+      setFoxResp(ex);
+      setFoxLoading(false);
+      emit(
+        `firefox: ${ex.status} ${ex.statusText} · ${ex.bytes} B · ttfb ${ex.ttfbMs}ms · ${ex.totalMs}ms`,
+      );
+    }, 320 + (ex.ttfbMs % 260));
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foxTab, foxWin, foxReload]);
+
   function openIcon(label: string) {
     const icon = DESKTOP_ICONS.find((i) => i.label === label);
     if (!icon) return;
@@ -378,8 +427,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       setFoxWin(true);
       setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
       setTopWin("firefox");
-      setTimeout(() => emit("firefox: process forked · pid 4821 · GPU compositing enabled"), 500);
-      setTimeout(() => emit("firefox: session restored · https://start.mozilla.org rendered"), 1100);
+      setFoxReload((n) => n + 1);
+      setTimeout(() => emit("firefox: process forked · pid 4821 · GPU compositing enabled"), 400);
       return;
     }
     setOpenWin(label);
