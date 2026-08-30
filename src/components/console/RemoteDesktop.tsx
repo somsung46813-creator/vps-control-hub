@@ -262,6 +262,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
         <div
           ref={frameRef}
           onMouseMove={move}
+          onMouseUp={endDrag}
+          onMouseLeave={endDrag}
           onClick={() => {
             if (done && !grabbed) toggleGrab();
             else if (mouseLive) setSelected(null);
