@@ -78,6 +78,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     term: { x: 26, y: 24 },
   });
   const [topWin, setTopWin] = useState<string>("thunar");
+  const [focusFollow, setFocusFollow] = useState(true);
+  const [termSel, setTermSel] = useState<string | null>(null);
+
   const [drag, setDrag] = useState<{
     kind: "icon" | "window";
     label: string;
@@ -229,8 +232,25 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   // ── cut / copy from the remote desktop into the cliprdr channel ──────────
   function clipPayload(label: string | null) {
     if (label) return DESKTOP_ICONS.find((i) => i.label === label)?.path ?? label;
-    return typed || clipGuest;
+    return termSel || typed || clipGuest;
   }
+
+  // xfwm4 focus-follows-mouse — hovering a window raises/focuses it
+  function hoverFocus(win: string) {
+    if (!focusFollow || !mouseLive || topWin === win) return;
+    setTopWin(win);
+    emit(`xfwm4: focus follows mouse · ${win} activated (pointer ${mouse.bdf})`);
+  }
+
+  // select a line of terminal scrollback with the pointer (PRIMARY selection)
+  function selectTermLine(line: string) {
+    if (!mouseLive) return;
+    setTermSel(line);
+    setClipGuest(line);
+    setClipXfer(`primary selection · ${new Blob([line]).size} B · UTF8_STRING`);
+    emit(`cliprdr: PRIMARY selection · ${line.slice(0, 40)}`);
+  }
+
 
   async function copyToChannel(label: string | null, cut = false) {
     const payload = clipPayload(label);
@@ -585,6 +605,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <div
                   style={{ left: `${wp("thunar").x}%`, top: `${wp("thunar").y}%` }}
                   onMouseDown={() => setTopWin("thunar")}
+                  onMouseEnter={() => hoverFocus("thunar")}
+
                   className={`absolute w-[38%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px] ${
                     topWin === "thunar" ? "z-40" : "z-30"
                   } ${drag?.kind === "window" && drag.label === "thunar" ? "opacity-90" : ""}`}
@@ -631,6 +653,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               <div
                 style={{ left: `${wp("term").x}%`, top: `${wp("term").y}%` }}
                 onMouseDown={() => setTopWin("term")}
+                onMouseEnter={() => hoverFocus("term")}
+
                 className={`absolute w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px] ${
                   topWin === "term" ? "z-40" : "z-30"
                 } ${drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""}`}
@@ -660,6 +684,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       label: null,
                     });
                   }}
+                  onAuxClick={(e) => {
+                    if (e.button !== 1) return;
+                    e.preventDefault();
+                    pasteToTerminal();
+                  }}
                 >
                   {termLines.length === 0 ? (
                     <>
@@ -668,11 +697,22 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     </>
                   ) : (
                     termLines.map((l, i) => (
-                      <p key={`${l}-${i}`} className={l.includes("$ ") ? "" : "text-[#c8d6e5]"}>
+                      <p
+                        key={`${l}-${i}`}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setTopWin("term");
+                          selectTermLine(l);
+                        }}
+                        className={`${l.includes("$ ") ? "" : "text-[#c8d6e5]"} ${
+                          termSel === l ? "bg-[#2e4258] text-[#e6f2ff]" : ""
+                        } ${mouseLive ? "cursor-none" : ""}`}
+                      >
                         {l}
                       </p>
                     ))
                   )}
+
                   <p>
                     ubuntu@{guest.name}:~$ {typed}
                     <span className="animate-pulse">▌</span>
@@ -688,8 +728,30 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               {/* bottom taskbar */}
               <div className="absolute bottom-0 inset-x-0 h-6 bg-[#1b2b3d]/95 border-t border-black/50 flex items-center gap-2 px-2 text-[9px] text-[#8fa8c0]">
                 <span className="px-1.5 rounded bg-[#2e4258] text-[#c8d6e5]">Terminal Emulator</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const next = !focusFollow;
+                    setFocusFollow(next);
+                    emit(
+                      `xfwm4: focus mode ${next ? "focus-follows-mouse" : "click-to-focus"} (xfconf /general/focus_mode)`,
+                    );
+                  }}
+                  className={`px-1.5 rounded ring-1 transition ${
+                    focusFollow
+                      ? "bg-neon/15 text-neon ring-neon/40"
+                      : "text-[#8fa8c0] ring-[#3d5a7a]"
+                  }`}
+                >
+                  focus: {focusFollow ? "hover" : "click"}
+                </button>
+                {termSel && (
+                  <span className="truncate max-w-[38%] text-[#7ec8ff]">sel: {termSel}</span>
+                )}
                 <span className="flex-1" />
                 <span>ws 1 · {conn.rdpTarget}</span>
+
               </div>
               {/* xfdesktop context menu — cut / copy / paste over the cliprdr channel */}
               {menu && (
