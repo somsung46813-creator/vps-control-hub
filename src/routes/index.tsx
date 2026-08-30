@@ -8,6 +8,7 @@ import { LogStream } from "@/components/console/LogStream";
 import { FileServer } from "@/components/console/FileServer";
 import { GuestManager } from "@/components/console/GuestManager";
 import { GuestConsole } from "@/components/console/GuestConsole";
+import { RemoteDesktop } from "@/components/console/RemoteDesktop";
 import {
   GUEST_TEMPLATES,
   isHypervisorPackage,
@@ -70,6 +71,7 @@ function Console() {
   const [vms, setVms] = useState<Vm[]>(() => seedFleet());
   const [selectedId, setSelectedId] = useState("vm-1");
   const [sessionGuestId, setSessionGuestId] = useState<string | null>(null);
+  const [rdpGuestId, setRdpGuestId] = useState<string | null>(null);
   const [view, setView] = useState("Fleet overview");
   const [logs, setLogs] = useState<LogLine[]>(() => [
     makeLog("ok", "agent 4.2.1 attached to 5 hosts", "00:00:00"),
@@ -360,6 +362,13 @@ function Console() {
     push(makeLog("net", `VBoxManage controlvm ${guest.name} vrde on · console session attached`));
   }
 
+  function openDesktop(guest: Guest) {
+    setRdpGuestId(guest.id);
+    const hostIp = vms.find((v) => v.id === guest.hostId)?.ip ?? selected.ip;
+    const conn = guestConn(guest, hostIp);
+    push(makeLog("ok", `VRDE viewer launching · rdp://${conn.rdpTarget} (${guest.name})`));
+  }
+
   function deleteGuest(guest: Guest) {
     setGuests((prev) => prev.filter((g) => g.id !== guest.id));
     push(makeLog("warn", `VBoxManage unregistervm ${guest.name} --delete`));
@@ -369,6 +378,7 @@ function Console() {
 
 
   const sessionGuest = guests.find((g) => g.id === sessionGuestId && g.status === "running") ?? null;
+  const rdpGuest = guests.find((g) => g.id === rdpGuestId && g.status === "running") ?? null;
 
   return (
     <div className="min-h-screen bg-void text-ink flex">
@@ -450,6 +460,7 @@ function Console() {
               onPower={powerGuest}
               onDelete={deleteGuest}
               onConnect={connectGuest}
+              onOpenDesktop={openDesktop}
               onToggleAutostart={toggleGuestAutostart}
             />
 
@@ -475,6 +486,13 @@ function Console() {
           guest={sessionGuest}
           hostIp={vms.find((v) => v.id === sessionGuest.hostId)?.ip ?? selected.ip}
           onClose={() => setSessionGuestId(null)}
+        />
+      )}
+      {rdpGuest && (
+        <RemoteDesktop
+          guest={rdpGuest}
+          hostIp={vms.find((v) => v.id === rdpGuest.hostId)?.ip ?? selected.ip}
+          onClose={() => setRdpGuestId(null)}
         />
       )}
     </div>
