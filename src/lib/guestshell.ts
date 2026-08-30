@@ -140,6 +140,15 @@ function aptInstall(pkg: string, guest: Guest): string[] {
       `${DESKTOPS[pkg].session} installed. Run \`config autostart\` to make startx launch it automatically.`,
     );
   }
+  if (pkg === "lightdm") {
+    lines.push(
+      "",
+      "Configuring lightdm:",
+      "  systemctl set-default graphical.target",
+      "  Created symlink /etc/systemd/system/display-manager.service → lightdm.service",
+      `lightdm will present the GTK greeter on the next boot — log in at the greeter to start your desktop session.`,
+    );
+  }
   return lines;
 }
 
@@ -177,6 +186,16 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
       ];
       // session lines appended below
       const de = desktopFor(guest);
+      if (de && installed(guest).has("lightdm")) {
+        lines.push(
+          "lightdm: starting display manager on seat0",
+          `lightdm-gtk-greeter: rendering login screen on VRDE ${conn.vrdePort}`,
+          `greeter: session "${de.session}" selected for ${conn.user}`,
+          "",
+          `lightdm authenticated ${conn.user} — ${de.session} session live at ${conn.rdpTarget}`,
+        );
+        return lines;
+      }
       if (de && autostartGuests.has(guest.id)) {
         lines.push(`~/.xinitrc → exec ${de.startCmd}`);
         if (de.pkg === "xfce4") {
@@ -224,13 +243,13 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
         ];
       }
       if (sub === "install") {
-        const pkg = args.filter((a) => !a.startsWith("-"))[0];
+        const pkg = args.slice(1).filter((a) => !a.startsWith("-"))[0];
         if (!pkg) return ["E: no package specified"];
         if (!sudo) return [`E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)`, "E: Unable to acquire the dpkg frontend lock — are you root? Use: sudo apt install " + pkg];
         return [`[sudo] password for ${conn.user}: ********`, ...aptInstall(pkg, guest)];
       }
       if (sub === "remove") {
-        const pkg = args.filter((a) => !a.startsWith("-"))[0];
+        const pkg = args.slice(1).filter((a) => !a.startsWith("-"))[0];
         if (!pkg) return ["E: no package specified"];
         if (!sudo) return ["E: Permission denied — are you root? Use sudo."];
         if (!installed(guest).has(pkg)) return [`Package '${pkg}' is not installed, so not removed`];
