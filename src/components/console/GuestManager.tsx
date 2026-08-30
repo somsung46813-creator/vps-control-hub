@@ -56,12 +56,27 @@ export function GuestManager({
               : `hypervisor not installed on ${vm.hostname}`}
           </p>
         </div>
-        <span
-          className={`text-[10px] px-2 py-1 rounded ring-1 ${
-            ready ? "bg-mint/10 text-mint ring-mint/30" : "bg-void text-dim ring-railedge"
-          }`}
-        >
-          {ready ? "vboxdrv loaded" : "awaiting .deb"}
+        <span className="flex items-center gap-1.5">
+          {hostLightdm ? (
+            <span className="text-[10px] px-2 py-1 rounded ring-1 bg-lantern/10 text-lantern ring-lantern/30">
+              host lightdm active
+            </span>
+          ) : (
+            <button
+              onClick={onInstallLightdm}
+              title="Install lightdm display manager on the host OS so guest sessions run on top of it"
+              className="text-[10px] px-2 py-1 rounded ring-1 ring-lantern/30 bg-lantern/10 text-lantern hover:bg-lantern/20 transition"
+            >
+              install host lightdm
+            </button>
+          )}
+          <span
+            className={`text-[10px] px-2 py-1 rounded ring-1 ${
+              ready ? "bg-mint/10 text-mint ring-mint/30" : "bg-void text-dim ring-railedge"
+            }`}
+          >
+            {ready ? "vboxdrv loaded" : "awaiting .deb"}
+          </span>
         </span>
       </div>
 
