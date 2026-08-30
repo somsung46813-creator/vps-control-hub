@@ -166,7 +166,7 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
       if (!installed(guest).has("xorg") && !installed(guest).has("xserver-xorg") && !installed(guest).has("ubuntu-desktop")) {
         return ["startx: command not found — install an X server first: sudo apt install xorg"];
       }
-      return [
+      const lines = [
         "xauth:  creating new authority file /home/" + conn.user + "/.Xauthority",
         "",
         "X.Org X Server 1.21.1.11",
@@ -175,6 +175,7 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
         `(II) modeset(0): 1024x768@60Hz virtual display on VRDE ${conn.vrdePort}`,
         "",
       ];
+      // session lines appended below
       const de = desktopFor(guest);
       if (de && autostartGuests.has(guest.id)) {
         lines.push(
