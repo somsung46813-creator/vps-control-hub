@@ -255,31 +255,57 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="text-[#8fa8c0]">{guest.name} · ubuntu</span>
                 <span className="text-mint">●</span>
               </div>
-              {/* desktop icons — clickable while the pointer is grabbed */}
-              <div className="absolute top-12 left-4 z-20 flex flex-col gap-4 text-center text-[9px] text-[#c8d6e5]">
-                {DESKTOP_ICONS.map((icon) => (
+              {/* desktop icons — click to select, double click to open, drag to move / drop on Trash */}
+              {DESKTOP_ICONS.filter((i) => !trashed.includes(i.label)).map((icon) => {
+                const p = pos[icon.label] ?? { x: 3, y: 14 };
+                const isDragging = drag?.label === icon.label;
+                const isTarget =
+                  drag != null && drag.label !== "Trash" && icon.label === "Trash" && overTrash;
+                return (
                   <button
                     key={icon.label}
                     type="button"
                     disabled={!mouseLive}
+                    style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                    onMouseDown={(e) => {
+                      if (!mouseLive) return;
+                      e.stopPropagation();
+                      e.preventDefault();
+                      const r = frameRef.current?.getBoundingClientRect();
+                      if (!r) return;
+                      setDrag({
+                        label: icon.label,
+                        dx: ((e.clientX - r.left) / r.width) * 100 - p.x,
+                        dy: ((e.clientY - r.top) / r.height) * 100 - p.y,
+                        moved: false,
+                      });
+                    }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (dragMovedRef.current) return;
                       setSelected(icon.label);
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       openIcon(icon.label);
                     }}
-                    className={`flex flex-col items-center gap-1 rounded px-1.5 py-1 transition ${
+                    className={`absolute z-20 w-16 -ml-8 flex flex-col items-center gap-1 rounded px-1.5 py-1 text-center text-[9px] text-[#c8d6e5] transition-colors ${
                       mouseLive ? "cursor-none" : "cursor-default"
-                    } ${selected === icon.label ? "bg-[#3d5a7a]/60 ring-1 ring-[#7ec8ff]" : "hover:bg-[#2e4258]/60"}`}
+                    } ${isDragging ? "opacity-80 ring-1 ring-[#7ec8ff] bg-[#3d5a7a]/70" : ""} ${
+                      isTarget ? "ring-1 ring-mint bg-mint/20" : ""
+                    } ${
+                      selected === icon.label && !isDragging
+                        ? "bg-[#3d5a7a]/60 ring-1 ring-[#7ec8ff]"
+                        : "hover:bg-[#2e4258]/60"
+                    }`}
                   >
                     <span className="h-7 w-7 rounded-md bg-[#2e4258] ring-1 ring-[#3d5a7a] flex items-center justify-center text-[11px]">
                       {icon.glyph}
                     </span>
                     {icon.label}
                   </button>
-                ))}
+                );
+              })}
               </div>
 
               {/* thunar window opened from a desktop icon */}
