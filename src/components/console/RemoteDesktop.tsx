@@ -209,6 +209,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     );
   }
 
+  function wp(label: string) {
+    return winPos[label] ?? { x: 30, y: 20 };
+  }
+
   function startWindowDrag(e: React.MouseEvent, label: string) {
     if (!mouseLive) return;
     e.stopPropagation();
