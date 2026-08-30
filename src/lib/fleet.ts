@@ -72,7 +72,7 @@ export function seedFleet(): Vm[] {
     mem: status === "stopped" ? 0 : clamp(cpu - 8 + i * 3),
     netMbps: status === "stopped" ? 0 : 180 + i * 260,
     diskIo: status === "stopped" ? 0 : 40 + i * 35,
-    history: status === "stopped" ? Array.from({ length: 11 }, () => 0) : series(cpu),
+    history: status === "stopped" ? Array.from({ length: 11 }, () => 0) : series(cpu, i + 1),
   }));
 }
 
@@ -120,10 +120,11 @@ export function stamp(d = new Date()): string {
 }
 
 let logSeq = 0;
-export function makeLog(level: LogLine["level"], text: string): LogLine {
+export function makeLog(level: LogLine["level"], text: string, time?: string): LogLine {
   logSeq += 1;
-  return { id: `log-${logSeq}`, time: stamp(), level, text };
+  return { id: `log-${logSeq}`, time: time ?? stamp(), level, text };
 }
+
 
 export function ambientLog(vms: Vm[]): LogLine {
   const vm = vms[Math.floor(Math.random() * vms.length)]!;
