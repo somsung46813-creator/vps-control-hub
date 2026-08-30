@@ -6,27 +6,34 @@ import {
   type HostFile,
   type Perms,
 } from "@/lib/filestore";
+import { isDebPackage } from "@/lib/guests";
 import type { Vm } from "@/lib/fleet";
 
 type Props = {
   vm: Vm;
   files: HostFile[];
+  installedPackages: string[];
   onUpload: (files: FileList) => void;
   onDownload: (file: HostFile) => void;
   onRun: (file: HostFile) => void;
+  onInstall: (file: HostFile) => void;
   onDelete: (file: HostFile) => void;
   onTogglePerm: (file: HostFile, bit: keyof Perms) => void;
 };
 
+
 export function FileServer({
   vm,
   files,
+  installedPackages,
   onUpload,
   onDownload,
   onRun,
+  onInstall,
   onDelete,
   onTogglePerm,
 }: Props) {
+
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
@@ -126,13 +133,24 @@ export function FileServer({
               >
                 get
               </button>
-              <button
-                onClick={() => onRun(f)}
-                disabled={!f.perms.x}
-                className="px-2 py-1 rounded ring-1 ring-mint/30 bg-mint/10 text-mint hover:bg-mint/20 transition disabled:opacity-30"
-              >
-                run
-              </button>
+              {isDebPackage(f.name) ? (
+                <button
+                  onClick={() => onInstall(f)}
+                  disabled={!f.perms.r || installedPackages.includes(f.id)}
+                  className="px-2 py-1 rounded ring-1 ring-lantern/30 bg-lantern/10 text-lantern hover:bg-lantern/20 transition disabled:opacity-30"
+                >
+                  {installedPackages.includes(f.id) ? "installed" : "install"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => onRun(f)}
+                  disabled={!f.perms.x}
+                  className="px-2 py-1 rounded ring-1 ring-mint/30 bg-mint/10 text-mint hover:bg-mint/20 transition disabled:opacity-30"
+                >
+                  run
+                </button>
+              )}
+
               <button
                 onClick={() => onDelete(f)}
                 disabled={!f.perms.w}
