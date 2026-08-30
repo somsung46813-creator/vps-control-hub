@@ -16,6 +16,7 @@ import {
   type Guest,
   type Hypervisor,
 } from "@/lib/guests";
+import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
 
 import {

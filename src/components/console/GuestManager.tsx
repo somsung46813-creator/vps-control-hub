@@ -15,6 +15,7 @@ type Props = {
   onPower: (guest: Guest, action: "start" | "stop" | "pause") => void;
   onDelete: (guest: Guest) => void;
   onConnect: (guest: Guest) => void;
+  onToggleAutostart: (guest: Guest) => void;
 };
 
 const statusTone: Record<Guest["status"], string> = {
@@ -32,6 +33,7 @@ export function GuestManager({
   onPower,
   onDelete,
   onConnect,
+  onToggleAutostart,
 }: Props) {
   const [name, setName] = useState("");
   const [tpl, setTpl] = useState(0);
@@ -133,6 +135,18 @@ export function GuestManager({
                     className="px-2 py-1 rounded ring-1 ring-neon/30 bg-neon/10 text-neon hover:bg-neon/20 transition disabled:opacity-30"
                   >
                     connect
+                  </button>
+                  <button
+                    onClick={() => onToggleAutostart(g)}
+                    disabled={g.status === "installing"}
+                    title={g.autostart ? "Desktop autostart on — boots straight into the session" : "Enable desktop autostart on boot"}
+                    className={`px-2 py-1 rounded ring-1 transition disabled:opacity-30 ${
+                      g.autostart
+                        ? "ring-lantern/40 bg-lantern/15 text-lantern"
+                        : "ring-railedge text-dim hover:text-lantern"
+                    }`}
+                  >
+                    {g.autostart ? "autostart on" : "autostart off"}
                   </button>
                   <button
                     onClick={() => onPower(g, "pause")}
