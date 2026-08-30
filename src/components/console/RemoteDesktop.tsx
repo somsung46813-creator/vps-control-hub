@@ -9,7 +9,17 @@ import {
   type IoDevice,
 } from "@/lib/iobus";
 
+type CLIP_MODE = "bidirectional" | "host-to-guest" | "guest-to-host" | "disabled";
+
+const CLIP_MODES: Array<{ id: CLIP_MODE; label: string }> = [
+  { id: "bidirectional", label: "bidi" },
+  { id: "host-to-guest", label: "host→guest" },
+  { id: "guest-to-host", label: "guest→host" },
+  { id: "disabled", label: "off" },
+];
+
 type Props = {
+
   guest: Guest;
   hostIp: string;
   onClose: () => void;
