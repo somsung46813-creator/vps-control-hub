@@ -918,7 +918,39 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               </div>
               {/* bottom taskbar */}
               <div className="absolute bottom-0 inset-x-0 h-6 bg-[#1b2b3d]/95 border-t border-black/50 flex items-center gap-2 px-2 text-[9px] text-[#8fa8c0]">
-                <span className="px-1.5 rounded bg-[#2e4258] text-[#c8d6e5]">Terminal Emulator</span>
+                {/* xfce4-panel window buttons — click to focus / minimize, dbl-click to maximize */}
+                {[
+                  { id: "term", label: "Terminal Emulator", open: true },
+                  { id: "thunar", label: openWin ? `${openWin} — Thunar` : "Thunar", open: !!openWin },
+                  { id: "firefox", label: "Mozilla Firefox", open: foxWin },
+                ]
+                  .filter((w) => w.open)
+                  .map((w) => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (ws(w.id) === "min") restoreWin(w.id);
+                        else if (topWin === w.id) minimizeWin(w.id);
+                        else restoreWin(w.id);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        toggleMaximize(w.id);
+                      }}
+                      className={`max-w-[26%] truncate px-1.5 rounded ring-1 transition ${
+                        ws(w.id) === "min"
+                          ? "text-[#8fa8c0] ring-[#3d5a7a] italic"
+                          : topWin === w.id
+                            ? "bg-[#2e4258] text-[#c8d6e5] ring-[#7ec8ff]/50"
+                            : "text-[#c8d6e5] ring-[#3d5a7a]"
+                      }`}
+                    >
+                      {ws(w.id) === "min" ? "▁ " : ws(w.id) === "max" ? "▣ " : "▪ "}
+                      {w.label}
+                    </button>
+                  ))}
                 <button
                   type="button"
                   onClick={(e) => {
