@@ -153,8 +153,10 @@ export type ProvisionPlan = {
   guestName: string;
   desktop: boolean;
   autostart: boolean;
-  /** browsers to install + place launchers for */
+  /** browsers to install + place launchers for (on host and guest) */
   browsers: BrowserId[];
+  /** when true (default) the plan also builds the host OS layer: lightdm + xrdp + browsers */
+  host?: boolean;
   /** unique base44 key for this plan/guest (never shared between guests) */
   digest: string;
   /** shell/VBoxManage steps the plan expands to */
