@@ -228,6 +228,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [fmSel, setFmSel] = useState<string | null>(null);
   const [fmTrash, setFmTrash] = useState<string[]>([]);
   const [fmMenu, setFmMenu] = useState<{ x: number; y: number; entry: string } | null>(null);
+  const [fmPath, setFmPath] = useState("/home/ubuntu");
+  const [fmBack, setFmBack] = useState<string[]>([]);
+  const [fmView, setFmView] = useState<{ path: string; text: string } | null>(null);
 
   const dragMovedRef = useRef(false);
   const [busLog, setBusLog] = useState<string[]>([]);
