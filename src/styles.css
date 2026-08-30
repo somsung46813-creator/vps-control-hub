@@ -162,7 +162,8 @@
   /* ratio between the primary and secondary console columns */
   --console-split: 1.15fr 1fr;
   /* breakpoint at which the side rail docks to the top */
-  --console-rail-break: 60rem;
+  --console-rail-break: 64rem;
+
 }
 
 /* shell: rail + main, collapsing to stacked rows on narrow viewports */
@@ -181,12 +182,14 @@
   min-width: 0;
 }
 
-@media (max-width: 60rem) {
+/* tablet & below (<= 64rem): rail docks to a top bar */
+@media (max-width: 64rem) {
   .console-shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "rail" "main";
   }
 }
+
 
 /* rail internals: header / nav / status, nav scrolls when docked on top */
 .console-rail-inner {
@@ -201,7 +204,7 @@
   grid-auto-flow: row;
   overflow: auto;
 }
-@media (max-width: 60rem) {
+@media (max-width: 64rem) {
   .console-rail-inner {
     grid-template-rows: auto auto;
     grid-template-columns: minmax(0, 1fr);
@@ -216,6 +219,7 @@
     display: none;
   }
 }
+
 
 /* fluid card grid: as many columns as fit, never narrower than --console-min-card */
 .console-cards {
@@ -260,6 +264,20 @@
   min-width: 0;
 }
 
+/* tablet (<= 64rem): single workspace column, medium gutters */
+@media (max-width: 64rem) {
+  :root {
+    --console-min-col: 100%;
+    --console-min-card: 11rem;
+    --console-pad-x: 1rem;
+    --console-pad-y: 1rem;
+    --console-gap: 0.75rem;
+  }
+  .console-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* phone: denser cards (2-up gauges) and tighter gutters */
 @media (max-width: 40rem) {
   :root {
@@ -268,7 +286,13 @@
     --console-pad-y: 0.875rem;
     --console-gap: 0.625rem;
   }
+  /* horizontally scroll wide data tables instead of clipping them */
+  .console-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
+
 
 /* ultrawide: allow a third rail of panels without stretching cards */
 @media (min-width: 110rem) {
