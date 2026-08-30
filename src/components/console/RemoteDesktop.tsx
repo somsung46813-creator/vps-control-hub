@@ -206,6 +206,57 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     return () => clearTimeout(t);
   }, [phase]);
 
+  // ── session health check: heartbeat over the RDP link ────────────────────
+  useEffect(() => {
+    if (!done) return;
+    setLinkState("up");
+    const iv = setInterval(() => {
+      const beat = Math.round(12 + Math.random() * 40);
+      setRtt(beat);
+      // occasional link stall — the health check flags it for the reconnect loop
+      if (Math.random() < 0.04) {
+        setLinkState("stalled");
+        emit(`rdp health: heartbeat timeout (${beat} ms baseline) · T.128 channel lost`);
+        setDone(false);
+      }
+    }, 4000);
+    return () => clearInterval(iv);
+  }, [done, emit]);
+
+  // ── auto-reconnect: retry the handshake whenever the link drops or times out
+  useEffect(() => {
+    if (done || !autoReconnect) return;
+    const t = setTimeout(() => {
+      if (phase >= HANDSHAKE.length) return; // handshake is already completing
+      setLinkState("reconnecting");
+      setRetries((r) => r + 1);
+      emit("rdp health: handshake timed out · auto-reconnect attempt queued");
+      setPhase(0);
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [done, autoReconnect, phase, emit]);
+
+  // a stalled link restarts the handshake immediately when auto-reconnect is on
+  useEffect(() => {
+    if (linkState !== "stalled" || !autoReconnect) return;
+    const t = setTimeout(() => {
+      setLinkState("reconnecting");
+      setRetries((r) => r + 1);
+      emit("rdp health: reconnecting · renegotiating TLS + channel join");
+      setPhase(0);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [linkState, autoReconnect, emit]);
+
+  function reconnectNow() {
+    setLinkState("reconnecting");
+    setRetries((r) => r + 1);
+    setDone(false);
+    setPhase(0);
+    emit("rdp health: manual reconnect · re-running handshake");
+  }
+
+
   // Escape always releases the grab back to the local desktop
   useEffect(() => {
     if (!done || !grabbed) return;
