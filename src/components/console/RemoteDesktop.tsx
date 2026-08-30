@@ -112,6 +112,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [clipMode, setClipMode] = useState<CLIP_MODE>("bidirectional");
   const [clipGuest, setClipGuest] = useState("");
   const [clipXfer, setClipXfer] = useState<string | null>(null);
+  const [busOpen, setBusOpen] = useState(true);
   const frameRef = useRef<HTMLDivElement | null>(null);
 
 
@@ -511,11 +512,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-void/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-5xl rounded-xl bg-panel ring-1 ring-railedge overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-void/80 backdrop-blur-sm p-2 sm:p-4">
+      <div className="w-full max-w-5xl max-h-[96vh] flex flex-col rounded-xl bg-panel ring-1 ring-railedge overflow-hidden shadow-2xl">
 
         {/* title bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-railedge">
+        <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-railedge">
           <div className="flex items-center gap-2 min-w-0">
             <span className="h-2 w-2 rounded-full bg-destructive/70" />
             <span className="h-2 w-2 rounded-full bg-amber/70" />
@@ -551,7 +552,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_18rem]">
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto grid grid-cols-1 ${
+            busOpen ? "md:grid-cols-[1fr_16rem] xl:grid-cols-[1fr_18rem]" : "md:grid-cols-[1fr_2.25rem]"
+          }`}
+        >
         {/* display */}
         <div
           ref={frameRef}
@@ -1035,17 +1040,42 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
         </div>
 
         {/* I/O bus — bus:device.function passthrough */}
-        <aside className="border-t lg:border-t-0 lg:border-l border-railedge bg-void/40 flex flex-col">
-          <div className="px-3 py-2 border-b border-railedge">
-            <p className="text-[10px] font-mono text-dim uppercase tracking-wider">I/O bus · bdf passthrough</p>
-            <p className="text-[9px] font-mono text-dim/70 mt-0.5">
-              {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound ·{" "}
-              <span className={grabbed ? "text-neon" : "text-amber"}>
-                hid grab {grabbed ? "guest" : "local"}
-              </span>
-            </p>
+        <aside className="border-t md:border-t-0 md:border-l border-railedge bg-void/40 flex flex-col min-h-0 md:max-h-full">
+          <div className="shrink-0 flex items-start gap-2 px-2 py-2 border-b border-railedge">
+            {busOpen && (
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-mono text-dim uppercase tracking-wider truncate">I/O bus · bdf passthrough</p>
+                <p className="text-[9px] font-mono text-dim/70 mt-0.5 truncate">
+                  {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound ·{" "}
+                  <span className={grabbed ? "text-neon" : "text-amber"}>
+                    hid grab {grabbed ? "guest" : "local"}
+                  </span>
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setBusOpen((v) => !v)}
+              aria-expanded={busOpen}
+              title={busOpen ? "minimize I/O bus panel" : "expand I/O bus panel"}
+              className="shrink-0 text-[10px] font-mono px-1.5 py-1 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 transition"
+            >
+              {busOpen ? "»" : "«"}
+            </button>
           </div>
-          <div className="flex-1 overflow-y-auto divide-y divide-railedge/60">
+          {!busOpen ? (
+            <button
+              type="button"
+              onClick={() => setBusOpen(true)}
+              className="flex-1 min-h-[3rem] w-full flex items-center justify-center text-[9px] font-mono text-dim hover:text-neon transition"
+            >
+              <span className="md:[writing-mode:vertical-rl] md:rotate-180">
+                bdf {devices.filter((d) => d.attached).length}/{devices.length} · {grabbed ? "grab guest" : "grab local"}
+              </span>
+            </button>
+          ) : (
+          <>
+          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-railedge/60">
             {devices.map((d) => (
               <button
                 key={d.id}
@@ -1128,11 +1158,13 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               ))
             )}
           </div>
+          </>
+          )}
         </aside>
         </div>
 
         {/* status bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-railedge text-[10px] font-mono text-dim">
+        <div className="shrink-0 flex flex-wrap gap-x-3 items-center justify-between px-4 py-2 border-t border-railedge text-[10px] font-mono text-dim">
           <span>
             VRDE {conn.rdpTarget} · {guest.osType} · {done ? "1280×720 @ 32bpp" : "negotiating"}
           </span>
