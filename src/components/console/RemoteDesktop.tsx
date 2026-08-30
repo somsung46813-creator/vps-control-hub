@@ -420,6 +420,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     setFoxLoading(true);
     setFoxHtml(null);
     setFoxLive(false);
+    setFoxError(null);
     const ex = simulateHttp(foxTab);
     emit(`firefox: ${ex.method} ${ex.url} · via enp0s3 NAT proxy`);
 
