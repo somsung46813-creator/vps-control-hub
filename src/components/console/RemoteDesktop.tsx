@@ -270,7 +270,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           <div className="px-3 py-2 border-b border-railedge">
             <p className="text-[10px] font-mono text-dim uppercase tracking-wider">I/O bus · bdf passthrough</p>
             <p className="text-[9px] font-mono text-dim/70 mt-0.5">
-              {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound
+              {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound ·{" "}
+              <span className={grabbed ? "text-neon" : "text-amber"}>
+                hid grab {grabbed ? "guest" : "local"}
+              </span>
             </p>
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-railedge/60">
