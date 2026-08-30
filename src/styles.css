@@ -182,12 +182,14 @@
   min-width: 0;
 }
 
-@media (max-width: 60rem) {
+/* tablet & below (<= 64rem): rail docks to a top bar */
+@media (max-width: 64rem) {
   .console-shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "rail" "main";
   }
 }
+
 
 /* rail internals: header / nav / status, nav scrolls when docked on top */
 .console-rail-inner {
