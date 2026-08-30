@@ -449,8 +449,20 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 </div>
               )}
               {/* terminal window */}
-              <div className="absolute left-[26%] top-[24%] w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px]">
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5]">
+              <div
+                style={{ left: `${wp("term").x}%`, top: `${wp("term").y}%` }}
+                onMouseDown={() => setTopWin("term")}
+                className={`absolute w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px] ${
+                  topWin === "term" ? "z-40" : "z-30"
+                } ${drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""}`}
+              >
+                <div
+                  onMouseDown={(e) => startWindowDrag(e, "term")}
+                  className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
+                    mouseLive ? "cursor-none" : "cursor-default"
+                  }`}
+                >
+
                   <span className="h-1.5 w-1.5 rounded-full bg-destructive/70" />
                   <span className="h-1.5 w-1.5 rounded-full bg-amber/70" />
                   <span className="h-1.5 w-1.5 rounded-full bg-mint/70" />
