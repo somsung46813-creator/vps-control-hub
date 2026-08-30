@@ -146,7 +146,7 @@ function aptInstall(pkg: string, guest: Guest): string[] {
       "Configuring lightdm:",
       "  systemctl set-default graphical.target",
       "  Created symlink /etc/systemd/system/display-manager.service → lightdm.service",
-      `lightdm will present the GTK greeter on the next boot/startx — log in as ${connUserHint()} to start your desktop session.`,
+      `lightdm will present the GTK greeter on the next boot — log in at the greeter to start your desktop session.`,
     );
   }
   return lines;
