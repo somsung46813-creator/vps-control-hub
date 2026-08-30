@@ -133,13 +133,24 @@ export function FileServer({
               >
                 get
               </button>
-              <button
-                onClick={() => onRun(f)}
-                disabled={!f.perms.x}
-                className="px-2 py-1 rounded ring-1 ring-mint/30 bg-mint/10 text-mint hover:bg-mint/20 transition disabled:opacity-30"
-              >
-                run
-              </button>
+              {isDebPackage(f.name) ? (
+                <button
+                  onClick={() => onInstall(f)}
+                  disabled={!f.perms.r || installedPackages.includes(f.id)}
+                  className="px-2 py-1 rounded ring-1 ring-lantern/30 bg-lantern/10 text-lantern hover:bg-lantern/20 transition disabled:opacity-30"
+                >
+                  {installedPackages.includes(f.id) ? "installed" : "install"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => onRun(f)}
+                  disabled={!f.perms.x}
+                  className="px-2 py-1 rounded ring-1 ring-mint/30 bg-mint/10 text-mint hover:bg-mint/20 transition disabled:opacity-30"
+                >
+                  run
+                </button>
+              )}
+
               <button
                 onClick={() => onDelete(f)}
                 disabled={!f.perms.w}
