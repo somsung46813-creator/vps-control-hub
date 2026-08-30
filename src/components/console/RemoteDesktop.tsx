@@ -1200,6 +1200,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                   drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""
                 }`}
               >
+                <ResizeGrips label="term" />
+
                 <div
                   onMouseDown={(e) => startWindowDrag(e, "term")}
                   onDoubleClick={(e) => {
