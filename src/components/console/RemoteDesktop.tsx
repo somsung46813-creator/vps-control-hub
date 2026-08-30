@@ -113,6 +113,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [foxLoading, setFoxLoading] = useState(false);
   const [foxResp, setFoxResp] = useState<HttpExchange | null>(null);
   const [httpView, setHttpView] = useState(false);
+  const [foxHtml, setFoxHtml] = useState<string | null>(null);
+  const [foxLive, setFoxLive] = useState(false);
   const [foxReload, setFoxReload] = useState(0);
 
 
