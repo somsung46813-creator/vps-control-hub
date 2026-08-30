@@ -127,6 +127,60 @@ export function Interpreter({
 
         <div className="border-t border-railedge pt-3">
           <div className="flex items-center justify-between gap-2 mb-1.5">
+            <p className="text-[10px] text-dim">virtualbox interpretation → guest build plan</p>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded ring-1 ${
+                plan.isVirtualBox
+                  ? "bg-neon/10 text-neon ring-neon/30"
+                  : "bg-amber/10 text-amber ring-amber/30"
+              }`}
+            >
+              {plan.isVirtualBox ? "subject: virtualbox" : "no hypervisor subject"}
+            </span>
+          </div>
+          <div className="rounded bg-void ring-1 ring-railedge px-2 py-2 space-y-1">
+            <p className="text-ink truncate">
+              {plan.guestName} <span className="text-dim">· {plan.templateLabel}</span>
+            </p>
+            <p className="text-[10px] text-dim">
+              desktop {plan.desktop ? "xfce4 + lightdm" : "headless"} · autostart{" "}
+              {plan.autostart ? "on" : "off"} · digest{" "}
+              <span className="text-lantern">{plan.digest}</span>
+            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={runProvision}
+                disabled={!src.armed}
+                className="px-2.5 py-1 rounded bg-mint/10 text-mint ring-1 ring-mint/30 hover:bg-mint/20 transition text-[10px] disabled:opacity-30"
+              >
+                interpret &amp; provision
+              </button>
+              <button
+                onClick={() => setShowSteps((s) => !s)}
+                className="px-2.5 py-1 rounded ring-1 ring-railedge text-dim hover:text-ink transition text-[10px]"
+              >
+                {showSteps ? "hide steps" : `${plan.steps.length} steps`}
+              </button>
+              {!src.armed && (
+                <span className="text-[10px] text-amber">install hypervisor .deb first</span>
+              )}
+            </div>
+            {showSteps && (
+              <ul className="pt-1 space-y-0.5 max-h-32 overflow-auto">
+                {plan.steps.map((s, i) => (
+                  <li key={i} className="text-[10px] text-dim break-all">
+                    <span className="text-neon">$</span> {s}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+
+
+        <div className="border-t border-railedge pt-3">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
             <p className="text-[10px] text-dim">guest binding</p>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded ring-1 ${
