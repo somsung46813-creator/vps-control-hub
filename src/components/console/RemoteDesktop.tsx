@@ -441,9 +441,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     (async () => {
       try {
         const r = await fetch(`/api/public/fetch?url=${encodeURIComponent(ex.url)}`);
-        const j = (await r.json()) as Record<string, unknown>;
+        let j: Record<string, unknown>;
+        try {
+          j = (await r.json()) as Record<string, unknown>;
+        } catch {
+          throw new Error(`malformed proxy response (HTTP ${r.status})`);
+        }
         if (!alive) return;
-        if (!r.ok || j['ok'] !== true) throw new Error(String(j['error'] ?? r.status));
+        if (!r.ok || j['ok'] !== true) {
+          const e = new Error(String(j['error'] ?? `HTTP ${r.status}`));
+          (e as Error & { resolutions?: string[] }).resolutions =
+            (j['resolutions'] as string[]) ?? [];
+          throw e;
+        }
         const live: HttpExchange = {
           ...ex,
           url: String(j['url']),
@@ -462,19 +472,31 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
         setFoxHtml((j['html'] as string | null) ?? null);
         setFoxLive(true);
         setFoxLoading(false);
+        const via = String(j['via'] ?? "");
+        if (via && !ex.url.includes(via)) emit(`firefox: search fell back to ${via}`);
         emit(
           `firefox: ${live.status} ${live.statusText} · ${live.bytes} B · ttfb ${live.ttfbMs}ms · live`,
         );
       } catch (err) {
         if (!alive) return;
+        const message = err instanceof Error ? err.message : "unknown transport error";
+        const resolutions =
+          (err as { resolutions?: string[] })?.resolutions?.length
+            ? (err as { resolutions?: string[] }).resolutions!
+            : [
+                "Retry the request — the guest NAT proxy may be momentarily saturated.",
+                "Enter a full https:// address instead of a search phrase.",
+                "Try another engine: duckduckgo.com or bing.com.",
+              ];
+        setFoxError({ message, resolutions });
         setFoxResp(ex);
+        setFoxHtml(null);
         setFoxLive(false);
         setFoxLoading(false);
-        emit(
-          `firefox: proxy unreachable (${err instanceof Error ? err.message : "error"}) — cached render`,
-        );
+        emit(`firefox: NS_ERROR_NET — ${message} (offline render)`);
       }
     })();
+
 
     return () => {
       alive = false;
