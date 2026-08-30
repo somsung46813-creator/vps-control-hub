@@ -535,9 +535,33 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
 
   function openIcon(label: string) {
-    const icon = DESKTOP_ICONS.find((i) => i.label === label);
+    const icon =
+      DESKTOP_ICONS.find((i) => i.label === label) ??
+      (label === "Chrome" ? CHROME_ICON : undefined);
     if (!icon) return;
     setSelected(label);
+    if (label === "Chrome") {
+      if (chromeShortcut !== "exec") {
+        emit("gio: permission denied · ~/Desktop/google-chrome.desktop is not executable");
+        setTermLines((l) =>
+          [
+            ...l,
+            "bash: ~/Desktop/google-chrome.desktop: Permission denied",
+            "hint: chmod +x ~/Desktop/google-chrome.desktop",
+          ].slice(-9),
+        );
+        setTopWin("term");
+        return;
+      }
+      emit(`chrome: launching ${icon.path} · desktop file trusted · click via ${mouse.bdf}`);
+      setBrowserApp("chrome");
+      setFoxWin(true);
+      setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
+      setTopWin("firefox");
+      setFoxReload((n) => n + 1);
+      setTimeout(() => emit("chrome: process forked · pid 5193 · GPU compositing enabled"), 400);
+      return;
+    }
     if (label === "Firefox") {
       emit(`firefox: launching ${icon.path} · pointer click via ${mouse.bdf}`);
       setBrowserApp("firefox");
