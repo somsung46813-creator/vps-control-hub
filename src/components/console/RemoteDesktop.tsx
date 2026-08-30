@@ -61,9 +61,23 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     return () => clearTimeout(t);
   }, [phase]);
 
-  // keyboard passthrough — only when the HID keyboard is attached to the bus
+  // Escape always releases the grab back to the local desktop
   useEffect(() => {
-    if (!done || !keyboard.attached) return;
+    if (!done || !grabbed) return;
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setGrabbed(false);
+        emit("input grab released → host (Escape)");
+      }
+    }
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [done, grabbed, emit]);
+
+  // keyboard passthrough — only while the viewer holds the input grab
+  useEffect(() => {
+    if (!done || !keyboardLive) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") return;
       e.preventDefault();
@@ -73,7 +87,18 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [done, keyboard.attached]);
+  }, [done, keyboardLive]);
+
+  function toggleGrab() {
+    setGrabbed((g) => {
+      emit(
+        g
+          ? "input grab released → host desktop (mouse + kbd local)"
+          : `input grabbed → ${guest.name} (mouse ${mouse.bdf} + kbd ${keyboard.bdf} captured · Esc releases)`,
+      );
+      return !g;
+    });
+  }
 
   function toggleDevice(d: IoDevice) {
     setDevices((prev) =>
