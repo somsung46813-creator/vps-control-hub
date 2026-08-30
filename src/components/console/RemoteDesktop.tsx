@@ -441,12 +441,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       setTrashed((prev) => [...prev, label]);
       emit(`gio trash "${DESKTOP_ICONS.find((i) => i.label === label)?.path}" · ${label} → Trash`);
       setSelected(null);
+    } else if (drag.moved && overFox && label !== "Firefox") {
+      const path = DESKTOP_ICONS.find((i) => i.label === label)?.path ?? label;
+      setFoxTab(`file://${path}`);
+      setTopWin("firefox");
+      emit(`xdnd: drop ${label} → firefox window · new tab file://${path}`);
+      setTimeout(() => emit(`firefox: rendering file://${path} · text/html decoded`), 400);
     } else if (drag.moved) {
       const p = pos[label];
       emit(`xdnd: drop ${label} @ ${Math.round(p?.x ?? 0)},${Math.round(p?.y ?? 0)} · icon position saved`);
     }
     setDrag(null);
     setOverTrash(false);
+    setOverFox(false);
     // let the click that follows mouseup know it was a drag, not a selection
     setTimeout(() => {
       dragMovedRef.current = false;
