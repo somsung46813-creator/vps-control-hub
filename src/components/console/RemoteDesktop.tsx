@@ -104,9 +104,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [openWin, setOpenWin] = useState<string | null>(null);
   const [foxWin, setFoxWin] = useState(false);
-  const [browserApp, setBrowserApp] = useState<"firefox" | "chrome">("firefox");
+  const [browserApp, setBrowserApp] = useState<BrowserApp>("firefox");
   /** null = shortcut not copied yet; "noexec" = copied but not chmod +x; "exec" = launchable */
   const [chromeShortcut, setChromeShortcut] = useState<null | "noexec" | "exec">(null);
+  const [chromiumInstalled, setChromiumInstalled] = useState(false);
+  const [rdpGen, setRdpGen] = useState(0); // bumped when the RDP stack is reinstalled
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
   );
