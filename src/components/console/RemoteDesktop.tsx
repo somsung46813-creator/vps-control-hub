@@ -551,7 +551,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       setSelected(null);
     } else if (drag.moved && overFox && label !== "Firefox") {
       const path = DESKTOP_ICONS.find((i) => i.label === label)?.path ?? label;
-      setFoxTab(`file://${path}`);
+      goFox(`file://${path}`);
       setTopWin("firefox");
       emit(`xdnd: drop ${label} → firefox window · new tab file://${path}`);
       setTimeout(() => emit(`firefox: rendering file://${path} · text/html decoded`), 400);
