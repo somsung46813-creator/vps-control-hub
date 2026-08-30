@@ -68,6 +68,7 @@ let idSeq = 100;
 function Console() {
   const [vms, setVms] = useState<Vm[]>(() => seedFleet());
   const [selectedId, setSelectedId] = useState("vm-1");
+  const [sessionGuestId, setSessionGuestId] = useState<string | null>(null);
   const [view, setView] = useState("Fleet overview");
   const [logs, setLogs] = useState<LogLine[]>(() => [
     makeLog("ok", "agent 4.2.1 attached to 5 hosts", "00:00:00"),
@@ -342,6 +343,8 @@ function Console() {
 
 
 
+
+  const sessionGuest = guests.find((g) => g.id === sessionGuestId && g.status === "running") ?? null;
 
   return (
     <div className="min-h-screen bg-void text-ink flex">
