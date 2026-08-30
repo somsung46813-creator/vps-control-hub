@@ -8,6 +8,7 @@ import { LogStream } from "@/components/console/LogStream";
 import { FileServer } from "@/components/console/FileServer";
 import { GuestManager } from "@/components/console/GuestManager";
 import { GuestConsole } from "@/components/console/GuestConsole";
+import { RemoteDesktop } from "@/components/console/RemoteDesktop";
 import {
   GUEST_TEMPLATES,
   isHypervisorPackage,
@@ -70,6 +71,7 @@ function Console() {
   const [vms, setVms] = useState<Vm[]>(() => seedFleet());
   const [selectedId, setSelectedId] = useState("vm-1");
   const [sessionGuestId, setSessionGuestId] = useState<string | null>(null);
+  const [rdpGuestId, setRdpGuestId] = useState<string | null>(null);
   const [view, setView] = useState("Fleet overview");
   const [logs, setLogs] = useState<LogLine[]>(() => [
     makeLog("ok", "agent 4.2.1 attached to 5 hosts", "00:00:00"),
