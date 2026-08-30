@@ -350,9 +350,21 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     } else if (snap) {
       out.push(`Download snap "${snap[1]}" (4021) from Snap Store`, `${snap[1]} 128.0 from Mozilla✓ installed`);
       emit(`snapd: ${snap[1]} installed in ${guest.name}`);
+      if (/^firefox$/.test(snap[1]!)) {
+        setFirefoxInstalled(true);
+        setTrashed((prev) => prev.filter((l) => l !== "Firefox"));
+        out.push("# firefox installed — double-click the 🦊 icon to launch");
+        emit("gio: firefox.desktop registered · launchable icon added to desktop");
+      }
     } else if (apt) {
       out.push(`Reading package lists... Done`, `Setting up ${apt[1]} ...`, `Processing triggers for desktop-file-utils ...`);
       emit(`dpkg: ${apt[1]} configured in ${guest.name}`);
+      if (/^firefox(-esr)?$/.test(apt[1]!)) {
+        setFirefoxInstalled(true);
+        setTrashed((prev) => prev.filter((l) => l !== "Firefox"));
+        out.push("# firefox installed — double-click the 🦊 icon to launch");
+        emit("gio: firefox.desktop registered · launchable icon added to desktop");
+      }
       if (/^(chromium|chromium-browser)$/.test(apt[1]!)) {
         setChromiumInstalled(true);
         setTrashed((prev) => prev.filter((l) => l !== "Chromium"));
@@ -1008,7 +1020,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="text-mint">●</span>
               </div>
               {/* desktop icons — click to select, double click to open, drag to move / drop on Trash */}
-              {[...DESKTOP_ICONS, ...(chromiumInstalled ? [CHROMIUM_ICON] : []), ...(chromeShortcut ? [CHROME_ICON] : [])]
+              {[...DESKTOP_ICONS, ...(firefoxInstalled ? [FIREFOX_ICON] : []), ...(chromiumInstalled ? [CHROMIUM_ICON] : []), ...(chromeShortcut ? [CHROME_ICON] : [])]
                 .filter((i) => !trashed.includes(i.label))
                 .map((icon) => {
                 const p = pos[icon.label] ?? { x: 3, y: 14 };
