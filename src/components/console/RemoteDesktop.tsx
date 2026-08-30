@@ -355,6 +355,45 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }
 
   // tear down and rebuild the VRDE/xrdp stack, then replay the RDP handshake
+  // one-click launcher: start a browser inside the session and focus its window
+  function launchBrowser(app: BrowserApp) {
+    if (app === "chromium" && !chromiumInstalled) {
+      setChromiumInstalled(true);
+      setTrashed((prev) => prev.filter((l) => l !== "Chromium"));
+      setTermLines((l) =>
+        [...l, "ubuntu@vectorad:~$ sudo apt install -y chromium-browser", "Setting up chromium-browser ..."].slice(-9),
+      );
+      emit("gio: chromium.desktop registered · launchable icon added to desktop");
+    }
+    if (app === "firefox" && !firefoxInstalled) {
+      installFirefox();
+    }
+    setBrowserApp(app);
+    setFoxWin(true);
+    setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
+    setTopWin("firefox");
+    setSelected(app === "chromium" ? "Chromium" : "Firefox");
+    setFoxReload((n) => n + 1);
+    emit(`${app}: launcher exec · window raised and focused by xfwm4`);
+  }
+
+  // one-click clipboard pull: host clipboard → guest prompt
+  async function pasteFromHost() {
+    if (!hostToGuest) return;
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) return;
+      const flat = text.replace(/\s+/g, " ").trim();
+      setTyped((t) => (t + flat).slice(-48));
+      setClipGuest(flat);
+      setClipXfer(`host → guest · ${new Blob([text]).size} B · CF_UNICODETEXT`);
+      emit(`cliprdr: host clipboard pulled · ${new Blob([text]).size} bytes → ${guest.name}`);
+    } catch {
+      setClipXfer("host → guest · blocked by browser permission");
+      emit("cliprdr: host clipboard read denied — permission");
+    }
+  }
+
   function reinstallRdp(via: string) {
     emit(`apt: ${via} · purging xrdp + VRDE extension pack`);
     setDone(false);
