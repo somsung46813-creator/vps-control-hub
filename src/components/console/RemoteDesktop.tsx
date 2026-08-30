@@ -1712,8 +1712,24 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
         {/* status bar */}
         <div className="shrink-0 flex flex-wrap gap-x-3 items-center justify-between px-4 py-2 border-t border-railedge text-[10px] font-mono text-dim">
-          <span>
+          <span className="flex items-center gap-2">
             VRDE {conn.rdpTarget} · {guest.osType} · {done ? "1280×720 @ 32bpp" : "negotiating"}
+            {rdpGen > 0 && <span className="text-mint">· stack rev {rdpGen}</span>}
+            <button
+              type="button"
+              title="sudo apt install --reinstall xrdp — rebuilds the VRDE stack and re-runs the handshake"
+              onClick={() => {
+                if (!done) return;
+                reinstallRdp("viewer: reinstall rdp");
+                setTermLines((l) =>
+                  [...l, "Reinstallation of xrdp ...", "# RDP stack rebuilt — session renegotiating"].slice(-9),
+                );
+              }}
+              disabled={!done}
+              className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 disabled:opacity-40 transition"
+            >
+              ⟳ reinstall rdp
+            </button>
           </span>
           <span>
             ptr {cursor.x},{cursor.y} ·{" "}
