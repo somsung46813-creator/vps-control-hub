@@ -415,14 +415,50 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     return winPos[label] ?? { x: 30, y: 20 };
   }
 
+  // ── xfwm4 window states: normal / minimized (iconified) / maximized ───────
+  function ws(label: string) {
+    return winState[label] ?? "normal";
+  }
+
+  function winStyle(label: string, width: string): React.CSSProperties {
+    if (ws(label) === "max") return { left: "0%", top: "4.5%", width: "100%" };
+    const p = wp(label);
+    return { left: `${p.x}%`, top: `${p.y}%`, width };
+  }
+
+  function minimizeWin(label: string) {
+    setWinState((s) => ({ ...s, [label]: "min" }));
+    emit(`xfwm4: iconify · ${label} → taskbar (_NET_WM_STATE_HIDDEN)`);
+  }
+
+  function toggleMaximize(label: string) {
+    const next = ws(label) === "max" ? "normal" : "max";
+    setWinState((s) => ({ ...s, [label]: next }));
+    setTopWin(label);
+    emit(
+      next === "max"
+        ? `xfwm4: maximize · ${label} (_NET_WM_STATE_MAXIMIZED_VERT|HORZ)`
+        : `xfwm4: unmaximize · ${label} restored to ${Math.round(wp(label).x)},${Math.round(wp(label).y)}`,
+    );
+  }
+
+  function restoreWin(label: string) {
+    if (ws(label) === "min") {
+      setWinState((s) => ({ ...s, [label]: "normal" }));
+      emit(`xfwm4: deiconify · ${label} restored from taskbar`);
+    }
+    setTopWin(label);
+  }
+
   function startWindowDrag(e: React.MouseEvent, label: string) {
     if (!mouseLive) return;
     e.stopPropagation();
     e.preventDefault();
+    setTopWin(label);
+    if (ws(label) === "max") return; // maximized windows are pinned
     const r = frameRef.current?.getBoundingClientRect();
     if (!r) return;
     const p = winPos[label] ?? { x: 30, y: 20 };
-    setTopWin(label);
     setDrag({
       kind: "window",
       label,
