@@ -90,12 +90,28 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }, [done, keyboardLive]);
 
   function toggleGrab() {
-    emit(
-      grabbed
-        ? "input grab released → host desktop (mouse + kbd local)"
-        : `input grabbed → ${guest.name} (mouse ${mouse.bdf} + kbd ${keyboard.bdf} captured · Esc releases)`,
+    if (grabbed) {
+      emit("input grab released → host desktop (mouse + kbd local)");
+      setGrabbed(false);
+      return;
+    }
+    // grabbing is meaningless unless the HID endpoints are bound on the bus —
+    // rebind any detached mouse/keyboard so the grab actually reaches the guest
+    const rebind = devices.filter(
+      (d) => (d.cls === "mouse" || d.cls === "keyboard") && !d.attached,
     );
-    setGrabbed(!grabbed);
+    if (rebind.length) {
+      setDevices((prev) =>
+        prev.map((x) =>
+          x.cls === "mouse" || x.cls === "keyboard" ? { ...x, attached: true } : x,
+        ),
+      );
+      for (const d of rebind) emit(attachLine({ ...d, attached: true }, guest));
+    }
+    emit(
+      `input grabbed → ${guest.name} (mouse ${mouse.bdf} + kbd ${keyboard.bdf} captured · Esc releases)`,
+    );
+    setGrabbed(true);
   }
 
   function toggleDevice(d: IoDevice) {
@@ -103,6 +119,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       prev.map((x) => (x.id === d.id ? { ...x, attached: !x.attached } : x)),
     );
     emit(d.attached ? detachLine(d, guest) : attachLine({ ...d, attached: true }, guest));
+    // pulling both HID endpoints off the bus drops the grab back to the host
+    if (d.attached && (d.cls === "mouse" || d.cls === "keyboard")) {
+      const other = d.cls === "mouse" ? keyboard : mouse;
+      if (grabbed && !other.attached) {
+        setGrabbed(false);
+        emit("input grab released → host (no HID endpoints bound)");
+      }
+    }
   }
 
   function move(e: React.MouseEvent) {
@@ -254,7 +278,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           <div className="px-3 py-2 border-b border-railedge">
             <p className="text-[10px] font-mono text-dim uppercase tracking-wider">I/O bus · bdf passthrough</p>
             <p className="text-[9px] font-mono text-dim/70 mt-0.5">
-              {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound
+              {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound ·{" "}
+              <span className={grabbed ? "text-neon" : "text-amber"}>
+                hid grab {grabbed ? "guest" : "local"}
+              </span>
             </p>
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-railedge/60">
@@ -268,6 +295,17 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <div className="flex items-center gap-2">
                   <span className="text-[11px]">{CLASS_ICON[d.cls]}</span>
                   <span className="text-[10px] text-ink truncate flex-1">{d.name}</span>
+                  {(d.cls === "mouse" || d.cls === "keyboard") && d.attached && (
+                    <span
+                      className={`text-[9px] font-mono px-1.5 py-0.5 rounded ring-1 ${
+                        grabbed
+                          ? "text-neon ring-neon/40 bg-neon/10"
+                          : "text-amber ring-amber/40 bg-amber/10"
+                      }`}
+                    >
+                      {grabbed ? "input live" : "grab off"}
+                    </span>
+                  )}
                   <span
                     className={`text-[9px] font-mono px-1.5 py-0.5 rounded ring-1 ${
                       d.attached
