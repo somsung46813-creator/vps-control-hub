@@ -1769,6 +1769,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
             >
               ⟳ reinstall rdp
             </button>
+            {firefoxInstalled ? (
+              <span className="text-mint">🦊 firefox installed</span>
+            ) : (
+              <button
+                type="button"
+                title="sudo apt install -y firefox — installs Firefox and adds a launchable desktop icon"
+                onClick={installFirefox}
+                disabled={installingFox || !done}
+                className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 disabled:opacity-40 transition"
+              >
+                {installingFox ? "installing firefox…" : "🦊 install firefox"}
+              </button>
+            )}
           </span>
           <span>
             ptr {cursor.x},{cursor.y} ·{" "}
