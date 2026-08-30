@@ -33,6 +33,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [cursor, setCursor] = useState({ x: 62, y: 55 });
   const [devices, setDevices] = useState<IoDevice[]>(() => ioDevices(guest));
   const [typed, setTyped] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [openWin, setOpenWin] = useState<string | null>(null);
   const [busLog, setBusLog] = useState<string[]>([]);
   const [grabbed, setGrabbed] = useState(true);
   const frameRef = useRef<HTMLDivElement | null>(null);
