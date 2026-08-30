@@ -174,9 +174,31 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
         `(II) VBOX(0): VirtualBox guest additions video driver`,
         `(II) modeset(0): 1024x768@60Hz virtual display on VRDE ${conn.vrdePort}`,
         "",
-        `Graphical session started for ${conn.user} — display exported to VRDE ${conn.rdpTarget}`,
       ];
+      const de = desktopFor(guest);
+      if (de && autostartGuests.has(guest.id)) {
+        lines.push(
+          `~/.xinitrc → exec ${de.startCmd}`,
+          `xfce4-panel: starting desktop session for ${conn.user}`,
+          `xfwm4: window manager active — 4 workspaces`,
+          `xfdesktop: drawing desktop, Thunar file manager ready`,
+          "",
+          `${de.session} started automatically — display exported to VRDE ${conn.rdpTarget}`,
+        );
+      } else if (de) {
+        lines.push(
+          `starting ${de.startCmd} ...`,
+          `${de.session} session started — display exported to VRDE ${conn.rdpTarget}`,
+          `tip: run \`config autostart\` so this launches automatically every startx`,
+        );
+      } else {
+        lines.push(`Graphical session started for ${conn.user} — display exported to VRDE ${conn.rdpTarget}`);
+      }
+      return lines;
     }
+    case "config":
+      if (args[0] === "autostart") return writeXinitrc(guest, conn);
+      return ["usage: config autostart"];
     case "dpkg":
       if (args[0] === "-l" || args[0] === "--list") {
         return [
