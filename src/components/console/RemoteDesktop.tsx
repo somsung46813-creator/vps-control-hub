@@ -1826,6 +1826,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
             >
               copy guest selection → host clipboard
             </button>
+            <button
+              type="button"
+              onClick={pasteFromHost}
+              disabled={!hostToGuest}
+              className="mt-1 w-full text-[9px] font-mono px-2 py-1 rounded ring-1 ring-railedge text-ink hover:bg-panel/70 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              paste host clipboard → guest prompt
+            </button>
           </div>
           <div className="px-3 py-2 border-t border-railedge min-h-[3.5rem]">
 
