@@ -168,7 +168,13 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <div className="p-2 leading-4 text-[#a8e6a3]">
                   <p>ubuntu@{guest.name}:~$ xfce4-session-logout --version</p>
                   <p className="text-[#c8d6e5]">xfce4-session 4.18.3 (Xfce 4.18)</p>
-                  <p>ubuntu@{guest.name}:~$ <span className="animate-pulse">▌</span></p>
+                  <p>
+                    ubuntu@{guest.name}:~$ {typed}
+                    <span className="animate-pulse">▌</span>
+                  </p>
+                  {!keyboard.attached && (
+                    <p className="text-amber">input: no keyboard on bus — attach ⌨ to type</p>
+                  )}
                 </div>
               </div>
               {/* bottom taskbar */}
@@ -178,12 +184,64 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span>ws 1 · {conn.rdpTarget}</span>
               </div>
               {/* remote cursor */}
-              <div
-                className="absolute h-2.5 w-2.5 rounded-full bg-neon/90 shadow-[0_0_8px_rgba(120,220,255,0.9)] pointer-events-none transition-[left,top] duration-75"
-                style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }}
-              />
+              {mouse.attached && (
+                <div
+                  className="absolute h-2.5 w-2.5 rounded-full bg-neon/90 shadow-[0_0_8px_rgba(120,220,255,0.9)] pointer-events-none transition-[left,top] duration-75"
+                  style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }}
+                />
+              )}
             </>
           )}
+        </div>
+
+        {/* I/O bus — bus:device.function passthrough */}
+        <aside className="border-t lg:border-t-0 lg:border-l border-railedge bg-void/40 flex flex-col">
+          <div className="px-3 py-2 border-b border-railedge">
+            <p className="text-[10px] font-mono text-dim uppercase tracking-wider">I/O bus · bdf passthrough</p>
+            <p className="text-[9px] font-mono text-dim/70 mt-0.5">
+              {devices.filter((d) => d.attached).length}/{devices.length} endpoints bound
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-railedge/60">
+            {devices.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => toggleDevice(d)}
+                aria-pressed={d.attached}
+                className="w-full text-left px-3 py-2 hover:bg-panel/70 transition group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px]">{CLASS_ICON[d.cls]}</span>
+                  <span className="text-[10px] text-ink truncate flex-1">{d.name}</span>
+                  <span
+                    className={`text-[9px] font-mono px-1.5 py-0.5 rounded ring-1 ${
+                      d.attached
+                        ? "text-mint ring-mint/40 bg-mint/10"
+                        : "text-dim ring-railedge"
+                    }`}
+                  >
+                    {d.attached ? "attached" : "detached"}
+                  </span>
+                </div>
+                <p className="text-[9px] font-mono text-dim mt-1 truncate">
+                  {d.bdf} · {d.vendorId}:{d.productId} · {d.driver}
+                </p>
+                {d.usb && <p className="text-[9px] font-mono text-dim/70 truncate">{d.usb}</p>}
+              </button>
+            ))}
+          </div>
+          <div className="px-3 py-2 border-t border-railedge min-h-[3.5rem]">
+            {busLog.length === 0 ? (
+              <p className="text-[9px] font-mono text-dim/60">udev quiet · no bus events</p>
+            ) : (
+              busLog.map((l, i) => (
+                <p key={`${l}-${i}`} className="text-[9px] font-mono text-mint/80 truncate">
+                  {l}
+                </p>
+              ))
+            )}
+          </div>
+        </aside>
         </div>
 
         {/* status bar */}
@@ -192,9 +250,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
             VRDE {conn.rdpTarget} · {guest.osType} · {done ? "1280×720 @ 32bpp" : "negotiating"}
           </span>
           <span>
-            ptr {cursor.x},{cursor.y} {done && "· input forwarded"}
+            ptr {cursor.x},{cursor.y} · {mouse.attached ? `mouse ${mouse.bdf}` : "mouse detached"} ·{" "}
+            {keyboard.attached ? `kbd ${keyboard.bdf}` : "kbd detached"}
           </span>
         </div>
+
       </div>
     </div>
   );
