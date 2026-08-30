@@ -178,14 +178,17 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
       // session lines appended below
       const de = desktopFor(guest);
       if (de && autostartGuests.has(guest.id)) {
-        lines.push(
-          `~/.xinitrc → exec ${de.startCmd}`,
-          `xfce4-panel: starting desktop session for ${conn.user}`,
-          `xfwm4: window manager active — 4 workspaces`,
-          `xfdesktop: drawing desktop, Thunar file manager ready`,
-          "",
-          `${de.session} started automatically — display exported to VRDE ${conn.rdpTarget}`,
-        );
+        lines.push(`~/.xinitrc → exec ${de.startCmd}`);
+        if (de.pkg === "xfce4") {
+          lines.push(
+            `xfce4-panel: starting desktop session for ${conn.user}`,
+            `xfwm4: window manager active — 4 workspaces`,
+            `xfdesktop: drawing desktop, Thunar file manager ready`,
+          );
+        } else {
+          lines.push(`${de.session}: starting desktop session for ${conn.user}`);
+        }
+        lines.push("", `${de.session} started automatically — display exported to VRDE ${conn.rdpTarget}`);
       } else if (de) {
         lines.push(
           `starting ${de.startCmd} ...`,
