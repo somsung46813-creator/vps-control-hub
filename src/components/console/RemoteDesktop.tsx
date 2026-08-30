@@ -97,6 +97,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     moved: boolean;
   } | null>(null);
   const [overTrash, setOverTrash] = useState(false);
+  const [overFox, setOverFox] = useState(false);
+  const [foxTab, setFoxTab] = useState("https://start.mozilla.org");
 
   const [trashed, setTrashed] = useState<string[]>([]);
   const dragMovedRef = useRef(false);
@@ -394,6 +396,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     setOverTrash(
       drag.label !== "Trash" && bin != null && Math.abs(nx - bin.x) < 7 && Math.abs(ny - bin.y) < 9,
     );
+    // firefox window is a drop target — hit-test cursor against its rect
+    if (foxWin && drag.label !== "Firefox") {
+      const fp = wp("firefox");
+      const hit = x >= fp.x && x <= fp.x + 46 && y >= fp.y && y <= fp.y + 42;
+      if (hit !== overFox) setOverFox(hit);
+    } else if (overFox) {
+      setOverFox(false);
+    }
   }
 
   function wp(label: string) {
@@ -431,12 +441,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       setTrashed((prev) => [...prev, label]);
       emit(`gio trash "${DESKTOP_ICONS.find((i) => i.label === label)?.path}" · ${label} → Trash`);
       setSelected(null);
+    } else if (drag.moved && overFox && label !== "Firefox") {
+      const path = DESKTOP_ICONS.find((i) => i.label === label)?.path ?? label;
+      setFoxTab(`file://${path}`);
+      setTopWin("firefox");
+      emit(`xdnd: drop ${label} → firefox window · new tab file://${path}`);
+      setTimeout(() => emit(`firefox: rendering file://${path} · text/html decoded`), 400);
     } else if (drag.moved) {
       const p = pos[label];
       emit(`xdnd: drop ${label} @ ${Math.round(p?.x ?? 0)},${Math.round(p?.y ?? 0)} · icon position saved`);
     }
     setDrag(null);
     setOverTrash(false);
+    setOverFox(false);
     // let the click that follows mouseup know it was a drag, not a selection
     setTimeout(() => {
       dragMovedRef.current = false;
@@ -671,7 +688,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                   style={{ left: `${wp("firefox").x}%`, top: `${wp("firefox").y}%` }}
                   onMouseDown={() => setTopWin("firefox")}
                   onMouseEnter={() => hoverFocus("firefox")}
-                  className={`absolute w-[46%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px] ${
+                  className={`absolute w-[46%] rounded-md bg-[#101d2b]/95 shadow-2xl text-[10px] ${
+                    overFox ? "ring-2 ring-mint" : "ring-1 ring-[#3d5a7a]"
+                  } ${
                     topWin === "firefox" ? "z-40" : "z-30"
                   } ${drag?.kind === "window" && drag.label === "firefox" ? "opacity-90" : ""}`}
                 >
@@ -693,14 +712,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     />
                     <span className="h-2 w-2 rounded-full bg-amber/70" />
                     <span className="h-2 w-2 rounded-full bg-mint/70" />
-                    <span className="ml-1.5 truncate">🦊 New Tab — Mozilla Firefox</span>
+                    <span className="ml-1.5 truncate">🦊 {foxTab.startsWith("file://") ? foxTab.split("/").pop() : "New Tab"} — Mozilla Firefox</span>
                   </div>
                   <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[#3d5a7a]/60">
                     <span className="text-[#8fa8c0]">←</span>
                     <span className="text-[#8fa8c0]">→</span>
                     <span className="text-[#8fa8c0]">⟳</span>
                     <span className="flex-1 truncate rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff]">
-                      https://start.mozilla.org
+                      {foxTab}
                     </span>
                   </div>
                   <div className="p-3 leading-5 text-[#c8d6e5]">
