@@ -305,7 +305,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
             VRDE {conn.rdpTarget} · {guest.osType} · {done ? "1280×720 @ 32bpp" : "negotiating"}
           </span>
           <span>
-            ptr {cursor.x},{cursor.y} · {mouse.attached ? `mouse ${mouse.bdf}` : "mouse detached"} ·{" "}
+            ptr {cursor.x},{cursor.y} ·{" "}
+            <span className={grabbed ? "text-neon" : "text-amber"}>
+              {grabbed ? "grab: guest" : "grab: local"}
+            </span>{" "}
+            · {mouse.attached ? `mouse ${mouse.bdf}` : "mouse detached"} ·{" "}
             {keyboard.attached ? `kbd ${keyboard.bdf}` : "kbd detached"}
           </span>
         </div>
