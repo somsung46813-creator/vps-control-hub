@@ -172,6 +172,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
 
   const [trashed, setTrashed] = useState<string[]>([]);
+  const [fmSel, setFmSel] = useState<string | null>(null);
+  const [fmTrash, setFmTrash] = useState<string[]>([]);
+  const [fmMenu, setFmMenu] = useState<{ x: number; y: number; entry: string } | null>(null);
+
   const dragMovedRef = useRef(false);
   const [busLog, setBusLog] = useState<string[]>([]);
   const [grabbed, setGrabbed] = useState(true);
@@ -1076,6 +1080,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
           }}
           onClick={() => {
             setMenu(null);
+            setFmMenu(null);
+
             if (done && !grabbed) toggleGrab();
             else if (mouseLive) setSelected(null);
           }}
@@ -1252,19 +1258,141 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       {openWin} — Thunar {DESKTOP_ICONS.find((i) => i.label === openWin)?.path}
                     </span>
                   </div>
-                  <div className="p-2 leading-5 text-[#c8d6e5]">
+                  <div className="relative p-2 leading-5 text-[#c8d6e5]">
                     {(openWin === "Trash"
                       ? trashed.map((t) => `${t}/`)
                       : (DESKTOP_ICONS.find((i) => i.label === openWin)?.entries ?? [])
-                    ).map((f) => (
-                      <p key={f} className="truncate">
-                        <span className="text-[#7ec8ff]">{f.endsWith("/") ? "📁" : "📄"}</span> {f}
-                      </p>
-                    ))}
+                    )
+                      .filter((f) => !fmTrash.includes(f))
+                      .map((f) => (
+                        <button
+                          type="button"
+                          key={f}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFmMenu(null);
+                            setFmSel(f);
+                            emit(`thunar: selected ${f} · left click via ${mouse.bdf}`);
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            emit(
+                              f.endsWith("/")
+                                ? `thunar: enter directory ${f} · xdg-open`
+                                : `xdg-open: ${f} · launching default handler`,
+                            );
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const box = e.currentTarget.parentElement!.getBoundingClientRect();
+                            setFmSel(f);
+                            setFmMenu({
+                              x: e.clientX - box.left,
+                              y: e.clientY - box.top,
+                              entry: f,
+                            });
+                            emit(`thunar: context menu on ${f} · right click via ${mouse.bdf}`);
+                          }}
+                          className={`w-full text-left truncate px-1 rounded ${
+                            fmSel === f ? "bg-[#2e6ca8]/60 text-white" : "hover:bg-[#2e4258]"
+                          } ${mouseLive ? "cursor-none" : "cursor-default"}`}
+                        >
+                          <span className="text-[#7ec8ff]">{f.endsWith("/") ? "📁" : "📄"}</span> {f}
+                        </button>
+                      ))}
                     {openWin === "Trash" && trashed.length === 0 && (
                       <p className="text-[#8fa8c0]">Trash is empty — drag an icon onto it</p>
                     )}
+
+                    {fmMenu && (
+                      <div
+                        style={{ left: fmMenu.x, top: fmMenu.y }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute z-50 w-40 rounded-md bg-[#16273a] ring-1 ring-[#3d5a7a] shadow-2xl py-1 text-[10px] text-[#c8d6e5]"
+                      >
+                        <p className="px-2 pb-1 text-[9px] text-[#8fa8c0] truncate border-b border-[#3d5a7a]/60">
+                          {fmMenu.entry}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            emit(
+                              fmMenu.entry.endsWith("/")
+                                ? `thunar: open folder ${fmMenu.entry}`
+                                : `xdg-open: ${fmMenu.entry} · default handler`,
+                            );
+                            setFmMenu(null);
+                          }}
+                          className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void copyToChannel(fmMenu.entry);
+                            setFmMenu(null);
+                          }}
+                          className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                        >
+                          Copy <span className="float-right text-[#8fa8c0]">Ctrl+C</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void copyToChannel(fmMenu.entry, true);
+                            setFmMenu(null);
+                          }}
+                          className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                        >
+                          Cut <span className="float-right text-[#8fa8c0]">Ctrl+X</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFmTrash((p) => (p.includes(fmMenu.entry) ? p : [...p, fmMenu.entry]));
+                            setTrashed((p) =>
+                              p.includes(fmMenu.entry) ? p : [...p, fmMenu.entry],
+                            );
+                            emit(`gio trash: ${fmMenu.entry} → ~/.local/share/Trash/files`);
+                            setFmSel(null);
+                            setFmMenu(null);
+                          }}
+                          className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                        >
+                          Move to Trash <span className="float-right text-[#8fa8c0]">Del</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!clipGuest}
+                          onClick={() => {
+                            emit(
+                              `thunar: paste ${clipGuest} → ${DESKTOP_ICONS.find((i) => i.label === openWin)?.path ?? "~"}`,
+                            );
+                            setFmMenu(null);
+                          }}
+                          className="w-full text-left px-2 py-1 hover:bg-[#2e4258] disabled:opacity-40"
+                        >
+                          Paste <span className="float-right text-[#8fa8c0]">Ctrl+V</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            emit(
+                              `thunar: properties ${fmMenu.entry} · ${fmMenu.entry.endsWith("/") ? "drwxr-xr-x" : "-rw-r--r--"} ubuntu:ubuntu`,
+                            );
+                            setFmMenu(null);
+                          }}
+                          className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                        >
+                          Properties
+                        </button>
+                      </div>
+                    )}
                   </div>
+
                 </div>
               )}
               {/* firefox browser window */}
