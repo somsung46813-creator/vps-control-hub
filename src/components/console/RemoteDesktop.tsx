@@ -1158,11 +1158,13 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               ))
             )}
           </div>
+          </>
+          )}
         </aside>
         </div>
 
         {/* status bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-railedge text-[10px] font-mono text-dim">
+        <div className="shrink-0 flex flex-wrap gap-x-3 items-center justify-between px-4 py-2 border-t border-railedge text-[10px] font-mono text-dim">
           <span>
             VRDE {conn.rdpTarget} · {guest.osType} · {done ? "1280×720 @ 32bpp" : "negotiating"}
           </span>
