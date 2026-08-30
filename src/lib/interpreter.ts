@@ -96,3 +96,44 @@ export function matchesComparator(entry: Interpretation, query: string): boolean
     entry.base44.toLowerCase().includes(q)
   );
 }
+
+/* ---------- hypervisor binding: interpreter is sourced from the VirtualBox .deb ---------- */
+
+export type InterpreterSource = {
+  /** true once a hypervisor .deb (e.g. virtualbox-7.2_7.2.16-…_amd64.deb) is installed */
+  armed: boolean;
+  pkg: string | null;
+  version: string | null;
+  /** base44 fingerprint of the source package itself */
+  fingerprint: string;
+};
+
+export function interpreterSource(pkg: string | null, version: string | null): InterpreterSource {
+  const armed = Boolean(pkg && version);
+  const tag = armed ? `${pkg}-${version}` : "";
+  return {
+    armed,
+    pkg,
+    version,
+    fingerprint: armed ? base44Encode(tag).slice(0, 16) : "",
+  };
+}
+
+/** Canonical descriptor line for a guest, fed through the interpreter. */
+export function guestDescriptor(g: {
+  name: string;
+  osType: string;
+  memMb: number;
+  diskGb: number;
+}): string {
+  return `${g.name}|${g.osType}|${g.memMb}M|${g.diskGb}G`;
+}
+
+/** Base44 signature stamped onto a guest, keyed to the source package + &110101011. */
+export function guestSignature(
+  g: { name: string; osType: string; memMb: number; diskGb: number },
+  src: InterpreterSource,
+): string {
+  const seedTag = src.armed ? `${src.pkg}${src.version}` : BASE44_ID;
+  return base44Encode(`${seedTag}::${guestDescriptor(g)}`).slice(0, 22);
+}
