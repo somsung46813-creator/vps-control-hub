@@ -6,7 +6,17 @@ import { InstanceTable } from "@/components/console/InstanceTable";
 import { DetailPanel } from "@/components/console/DetailPanel";
 import { LogStream } from "@/components/console/LogStream";
 import { FileServer } from "@/components/console/FileServer";
+import { GuestManager } from "@/components/console/GuestManager";
+import {
+  GUEST_TEMPLATES,
+  isHypervisorPackage,
+  makeGuest,
+  parseDeb,
+  type Guest,
+  type Hypervisor,
+} from "@/lib/guests";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
+
 import {
   downloadFile,
   dropBlob,
