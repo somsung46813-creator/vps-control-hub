@@ -94,6 +94,38 @@ function desktopFor(guest: Guest): { pkg: string; session: string; startCmd: str
 /** Guests configured to auto-launch their desktop session from startx (~/.xinitrc). */
 const autostartGuests = new Set<string>();
 
+/**
+ * Boot-sequence lines for a guest whose persistence toggle is on.
+ * Emitted by the host console when the guest powers on — no manual commands needed.
+ */
+export function autostartBootLines(guest: Guest, conn: GuestConn): string[] {
+  const de = desktopFor(guest);
+  const lines = [
+    `systemd: ${guest.name} reaching graphical.target (persistent autostart enabled)`,
+  ];
+  if (!de) {
+    lines.push(
+      "systemd: graphical.target wants a desktop session, but none is installed",
+      `hint: connect and run \`sudo apt install xfce4\` — autostart will pick it up on next boot`,
+    );
+    return lines;
+  }
+  if (installed(guest).has("lightdm")) {
+    lines.push(
+      "lightdm.service: started automatically on boot",
+      `lightdm-gtk-greeter: login screen live on VRDE ${conn.vrdePort}`,
+      `greeter: session "${de.session}" selected for ${conn.user}`,
+      `${de.session} desktop exported to ${conn.rdpTarget} — no manual startx required`,
+    );
+  } else {
+    lines.push(
+      `autologin@${conn.user}.service: exec ${de.startCmd} (via ~/.xinitrc)`,
+      `${de.session} session started on boot — display exported to VRDE ${conn.rdpTarget}`,
+    );
+  }
+  return lines;
+}
+
 function writeXinitrc(guest: Guest, conn: GuestConn): string[] {
   const de = desktopFor(guest);
   if (!de) return ["no desktop environment installed — install one first: sudo apt install xfce4"];
