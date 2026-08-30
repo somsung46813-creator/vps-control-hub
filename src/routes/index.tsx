@@ -86,7 +86,7 @@ function Console() {
   const [selectedId, setSelectedId] = useState("vm-1");
   const [sessionGuestId, setSessionGuestId] = useState<string | null>(null);
   const [rdpGuestId, setRdpGuestId] = useState<string | null>(null);
-  const [view, setView] = useState("Fleet overview");
+  
   const [logs, setLogs] = useState<LogLine[]>(() => [
     makeLog("ok", "agent 4.2.1 attached to 5 hosts", "00:00:00"),
     makeLog("net", "control plane link established · eu-central", "00:00:01"),
@@ -607,8 +607,6 @@ function Console() {
   return (
     <div className="console-shell bg-void text-ink">
       <SideRail
-        active={view}
-        onSelect={setView}
         counts={{
           instances: vms.length,
           draining: vms.filter((v) => v.status === "draining").length,
@@ -618,7 +616,7 @@ function Console() {
       <main className="console-main min-w-0">
         <header className="flex flex-wrap items-center justify-between gap-3 px-[var(--console-pad-x)] py-4 border-b border-railedge">
           <div>
-            <h1 className="font-display font-semibold text-2xl leading-tight">{view}</h1>
+            <h1 className="font-display font-semibold text-2xl leading-tight">Fleet overview</h1>
             <p className="text-xs text-dim mt-1">
               {vms.length} instances · {regions} regions · region cluster {selected.region}
             </p>
