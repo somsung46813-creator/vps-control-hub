@@ -14,6 +14,7 @@ type Props = {
   onCreate: (name: string, templateIndex: number) => void;
   onPower: (guest: Guest, action: "start" | "stop" | "pause") => void;
   onDelete: (guest: Guest) => void;
+  onConnect: (guest: Guest) => void;
 };
 
 const statusTone: Record<Guest["status"], string> = {
@@ -23,7 +24,15 @@ const statusTone: Record<Guest["status"], string> = {
   installing: "bg-lantern/10 text-lantern ring-lantern/30",
 };
 
-export function GuestManager({ vm, hypervisor, guests, onCreate, onPower, onDelete }: Props) {
+export function GuestManager({
+  vm,
+  hypervisor,
+  guests,
+  onCreate,
+  onPower,
+  onDelete,
+  onConnect,
+}: Props) {
   const [name, setName] = useState("");
   const [tpl, setTpl] = useState(0);
   const ready = hypervisor.installedOn.includes(vm.id);
@@ -117,6 +126,13 @@ export function GuestManager({ vm, hypervisor, guests, onCreate, onPower, onDele
                     className="px-2 py-1 rounded ring-1 ring-mint/30 bg-mint/10 text-mint hover:bg-mint/20 transition disabled:opacity-30"
                   >
                     {g.status === "running" ? "halt" : "boot"}
+                  </button>
+                  <button
+                    onClick={() => onConnect(g)}
+                    disabled={g.status !== "running"}
+                    className="px-2 py-1 rounded ring-1 ring-neon/30 bg-neon/10 text-neon hover:bg-neon/20 transition disabled:opacity-30"
+                  >
+                    connect
                   </button>
                   <button
                     onClick={() => onPower(g, "pause")}

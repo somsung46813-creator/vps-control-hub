@@ -7,6 +7,7 @@ import { DetailPanel } from "@/components/console/DetailPanel";
 import { LogStream } from "@/components/console/LogStream";
 import { FileServer } from "@/components/console/FileServer";
 import { GuestManager } from "@/components/console/GuestManager";
+import { GuestConsole } from "@/components/console/GuestConsole";
 import {
   GUEST_TEMPLATES,
   isHypervisorPackage,
@@ -67,6 +68,7 @@ let idSeq = 100;
 function Console() {
   const [vms, setVms] = useState<Vm[]>(() => seedFleet());
   const [selectedId, setSelectedId] = useState("vm-1");
+  const [sessionGuestId, setSessionGuestId] = useState<string | null>(null);
   const [view, setView] = useState("Fleet overview");
   const [logs, setLogs] = useState<LogLine[]>(() => [
     makeLog("ok", "agent 4.2.1 attached to 5 hosts", "00:00:00"),
@@ -329,6 +331,11 @@ function Console() {
     }
   }
 
+  function connectGuest(guest: Guest) {
+    setSessionGuestId(guest.id);
+    push(makeLog("net", `VBoxManage controlvm ${guest.name} vrde on · console session attached`));
+  }
+
   function deleteGuest(guest: Guest) {
     setGuests((prev) => prev.filter((g) => g.id !== guest.id));
     push(makeLog("warn", `VBoxManage unregistervm ${guest.name} --delete`));
@@ -336,6 +343,8 @@ function Console() {
 
 
 
+
+  const sessionGuest = guests.find((g) => g.id === sessionGuestId && g.status === "running") ?? null;
 
   return (
     <div className="min-h-screen bg-void text-ink flex">
@@ -416,6 +425,7 @@ function Console() {
               onCreate={createGuest}
               onPower={powerGuest}
               onDelete={deleteGuest}
+              onConnect={connectGuest}
             />
 
           </div>
@@ -435,6 +445,13 @@ function Console() {
       </main>
 
       <DeployDrawer open={deployOpen} onClose={() => setDeployOpen(false)} onDeploy={deploy} />
+      {sessionGuest && (
+        <GuestConsole
+          guest={sessionGuest}
+          hostIp={vms.find((v) => v.id === sessionGuest.hostId)?.ip ?? selected.ip}
+          onClose={() => setSessionGuestId(null)}
+        />
+      )}
     </div>
   );
 }
