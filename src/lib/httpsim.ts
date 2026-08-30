@@ -37,7 +37,11 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-/** Turn raw omnibox input into a URL (search when it is not URL-ish). */
+/** Turn raw omnibox input into a URL (Google search when it is not URL-ish). */
+export function searchUrl(query: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
 export function normalizeUrl(input: string): string {
   const raw = input.trim();
   if (!raw) return "about:blank";
@@ -45,7 +49,7 @@ export function normalizeUrl(input: string): string {
   if (/^https?:\/\//i.test(raw)) return raw;
   const looksHost = /^[\w-]+(\.[\w-]+)+(:\d+)?(\/|$)/.test(raw);
   if (looksHost) return `https://${raw}`;
-  return `https://duckduckgo.com/?q=${encodeURIComponent(raw)}`;
+  return searchUrl(raw);
 }
 
 type PageSeed = {
@@ -74,10 +78,11 @@ function pageFor(url: string, host: string, path: string): PageSeed {
       contentType: "text/html; charset=UTF-8",
     };
   }
-  if (host.includes("duckduckgo") && path.includes("q=")) {
-    const q = decodeURIComponent(path.split("q=")[1] ?? "").replace(/\+/g, " ");
+  if ((host.includes("google") || host.includes("duckduckgo") || host.includes("bing")) && path.includes("q=")) {
+    const engine = host.includes("google") ? "Google" : host.includes("bing") ? "Bing" : "DuckDuckGo";
+    const q = decodeURIComponent(path.split("q=")[1]?.split("&")[0] ?? "").replace(/\+/g, " ");
     return {
-      title: `${q} at DuckDuckGo`,
+      title: `${q} - ${engine} Search`,
       heading: `Results for “${q}”`,
       lines: [
         `About ${(hash(q) % 900000) + 12000} results (0.${(hash(q) % 89) + 10} seconds)`,

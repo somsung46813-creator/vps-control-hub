@@ -36,7 +36,7 @@ const HANDSHAKE = [
   "channel join: rdpdr rdpsnd cliprdr",
   "graphics: AVC444 pipeline negotiated",
   "usb bus enumerate · bdf map exported",
-  "desktop session resumed · XFCE",
+  "display-manager: lightdm.service active · session resumed (XFCE)",
 ];
 
 const DESKTOP_ICONS: Array<{
@@ -130,6 +130,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [foxHtml, setFoxHtml] = useState<string | null>(null);
   const [foxLive, setFoxLive] = useState(false);
   const [foxReload, setFoxReload] = useState(0);
+  const [foxError, setFoxError] = useState<{ message: string; resolutions: string[] } | null>(null);
 
 
   const [trashed, setTrashed] = useState<string[]>([]);
@@ -419,6 +420,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     setFoxLoading(true);
     setFoxHtml(null);
     setFoxLive(false);
+    setFoxError(null);
     const ex = simulateHttp(foxTab);
     emit(`firefox: ${ex.method} ${ex.url} · via enp0s3 NAT proxy`);
 
@@ -439,9 +441,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     (async () => {
       try {
         const r = await fetch(`/api/public/fetch?url=${encodeURIComponent(ex.url)}`);
-        const j = (await r.json()) as Record<string, unknown>;
+        let j: Record<string, unknown>;
+        try {
+          j = (await r.json()) as Record<string, unknown>;
+        } catch {
+          throw new Error(`malformed proxy response (HTTP ${r.status})`);
+        }
         if (!alive) return;
-        if (!r.ok || j['ok'] !== true) throw new Error(String(j['error'] ?? r.status));
+        if (!r.ok || j['ok'] !== true) {
+          const e = new Error(String(j['error'] ?? `HTTP ${r.status}`));
+          (e as Error & { resolutions?: string[] }).resolutions =
+            (j['resolutions'] as string[]) ?? [];
+          throw e;
+        }
         const live: HttpExchange = {
           ...ex,
           url: String(j['url']),
@@ -460,19 +472,31 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
         setFoxHtml((j['html'] as string | null) ?? null);
         setFoxLive(true);
         setFoxLoading(false);
+        const via = String(j['via'] ?? "");
+        if (via && !ex.url.includes(via)) emit(`firefox: search fell back to ${via}`);
         emit(
           `firefox: ${live.status} ${live.statusText} · ${live.bytes} B · ttfb ${live.ttfbMs}ms · live`,
         );
       } catch (err) {
         if (!alive) return;
+        const message = err instanceof Error ? err.message : "unknown transport error";
+        const resolutions =
+          (err as { resolutions?: string[] })?.resolutions?.length
+            ? (err as { resolutions?: string[] }).resolutions!
+            : [
+                "Retry the request — the guest NAT proxy may be momentarily saturated.",
+                "Enter a full https:// address instead of a search phrase.",
+                "Try another engine: duckduckgo.com or bing.com.",
+              ];
+        setFoxError({ message, resolutions });
         setFoxResp(ex);
+        setFoxHtml(null);
         setFoxLive(false);
         setFoxLoading(false);
-        emit(
-          `firefox: proxy unreachable (${err instanceof Error ? err.message : "error"}) — cached render`,
-        );
+        emit(`firefox: NS_ERROR_NET — ${message} (offline render)`);
       }
     })();
+
 
     return () => {
       alive = false;
@@ -1100,7 +1124,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                         onKeyDown={(e) => e.stopPropagation()}
                         spellCheck={false}
                         aria-label="Address bar"
-                        placeholder="Search with DuckDuckGo or enter address"
+                        placeholder="Search with Google or enter address"
                         className="w-full rounded bg-black/50 px-2 py-0.5 text-[#7ec8ff] outline-none ring-1 ring-transparent focus:ring-[#7ec8ff]/50"
                       />
                     </form>
@@ -1122,6 +1146,45 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     <div className="p-0 leading-5 text-[#c8d6e5] overflow-y-auto min-h-[220px]">
                       {foxLoading || !foxResp ? (
                         <p className="p-3 text-[#8fa8c0]">Connecting to {normalizeUrl(foxTab)}…</p>
+                      ) : foxError ? (
+                        <div className="p-3 space-y-1.5">
+                          <p className="text-amber text-[11px] font-semibold">
+                            ⚠ Unable to connect — {normalizeUrl(foxTab)}
+                          </p>
+                          <p className="text-[#c8d6e5]">
+                            exception: <span className="text-amber">{foxError.message}</span>
+                          </p>
+                          <p className="text-[#8fa8c0] uppercase tracking-wider text-[9px] pt-1">
+                            resolutions
+                          </p>
+                          <ul className="space-y-0.5">
+                            {foxError.resolutions.map((r) => (
+                              <li key={r} className="text-[#8fa8c0]">· {r}</li>
+                            ))}
+                          </ul>
+                          <div className="flex gap-1.5 pt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setFoxReload((n) => n + 1)}
+                              className="px-2 py-0.5 rounded ring-1 ring-mint/50 text-mint hover:bg-mint/10"
+                            >
+                              Try again
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                goFox(
+                                  `https://duckduckgo.com/?q=${encodeURIComponent(
+                                    new URL(normalizeUrl(foxTab)).searchParams.get("q") ?? "ubuntu xfce",
+                                  )}`,
+                                )
+                              }
+                              className="px-2 py-0.5 rounded ring-1 ring-[#3d5a7a] text-[#8fa8c0] hover:text-[#7ec8ff]"
+                            >
+                              Search DuckDuckGo instead
+                            </button>
+                          </div>
+                        </div>
                       ) : foxHtml ? (
                         <iframe
                           title={foxResp.title}
