@@ -19,6 +19,7 @@ import {
 } from "@/lib/guests";
 import { autostartBootLines, guestConn } from "@/lib/guestshell";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
+import { Interpreter } from "@/components/console/Interpreter";
 
 import {
   downloadFile,
@@ -512,6 +513,7 @@ function Console() {
 
           <div className="flex flex-col gap-3">
             <DetailPanel vm={selected} onAction={runAction} />
+            <Interpreter onEvent={(line) => push(makeLog("ok", line))} />
             <LogStream
               lines={logs}
               clock={clock}
