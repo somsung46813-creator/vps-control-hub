@@ -107,7 +107,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
   function move(e: React.MouseEvent) {
     const el = frameRef.current;
-    if (!el || !mouse.attached) return;
+    if (!el || !mouseLive) return;
     const r = el.getBoundingClientRect();
     setCursor({
       x: Math.round(((e.clientX - r.left) / r.width) * 100),
