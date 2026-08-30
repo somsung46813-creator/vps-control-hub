@@ -5,7 +5,18 @@ import { Gauges } from "@/components/console/Gauges";
 import { InstanceTable } from "@/components/console/InstanceTable";
 import { DetailPanel } from "@/components/console/DetailPanel";
 import { LogStream } from "@/components/console/LogStream";
+import { FileServer } from "@/components/console/FileServer";
 import { DeployDrawer, type DeploySpec } from "@/components/console/DeployDrawer";
+import {
+  downloadFile,
+  dropBlob,
+  formatBytes,
+  makeHostFile,
+  permString,
+  seedFiles,
+  type HostFile,
+  type Perms,
+} from "@/lib/filestore";
 import {
   ambientLog,
   fleetAverages,
@@ -17,6 +28,7 @@ import {
   type LogLine,
   type Vm,
 } from "@/lib/fleet";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
