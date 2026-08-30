@@ -64,6 +64,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [cursor, setCursor] = useState({ x: 62, y: 55 });
   const [devices, setDevices] = useState<IoDevice[]>(() => ioDevices(guest));
   const [typed, setTyped] = useState("");
+  const [termLines, setTermLines] = useState<string[]>([]);
+  const [cutIcon, setCutIcon] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; label: string | null } | null>(null);
+
   const [selected, setSelected] = useState<string | null>(null);
   const [openWin, setOpenWin] = useState<string | null>(null);
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
