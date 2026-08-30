@@ -378,6 +378,7 @@ function Console() {
 
 
   const sessionGuest = guests.find((g) => g.id === sessionGuestId && g.status === "running") ?? null;
+  const rdpGuest = guests.find((g) => g.id === rdpGuestId && g.status === "running") ?? null;
 
   return (
     <div className="min-h-screen bg-void text-ink flex">
