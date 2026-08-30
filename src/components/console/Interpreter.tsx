@@ -8,7 +8,9 @@ import {
   interpret,
   interpreterSource,
   matchesComparator,
+  planFromText,
   type Interpretation,
+  type ProvisionPlan,
 } from "@/lib/interpreter";
 import type { Guest, Hypervisor } from "@/lib/guests";
 import { formatMem } from "@/lib/guests";
@@ -18,24 +20,39 @@ type Props = {
   hypervisor?: Hypervisor;
   guests?: Guest[];
   onStampGuest?: (guest: Guest, signature: string) => void;
+  onProvision?: (plan: ProvisionPlan) => void;
 };
 
-export function Interpreter({ onEvent, hypervisor, guests = [], onStampGuest }: Props) {
-  const [input, setInput] = useState("Virtual Box");
+export function Interpreter({
+  onEvent,
+  hypervisor,
+  guests = [],
+  onStampGuest,
+  onProvision,
+}: Props) {
+  const [input, setInput] = useState("Virtual Box · install Ubuntu 24.04 guest with desktop");
   const [history, setHistory] = useState<Interpretation[]>([]);
   const [filter, setFilter] = useState("");
   const [decodeIn, setDecodeIn] = useState("");
   const [decodeOut, setDecodeOut] = useState<string | null>(null);
+  const [showSteps, setShowSteps] = useState(false);
 
   const src = useMemo(
     () => interpreterSource(hypervisor?.packageName ?? null, hypervisor?.version ?? null),
     [hypervisor?.packageName, hypervisor?.version],
   );
   const live = useMemo(() => interpret(input), [input]);
+  const plan = useMemo(() => planFromText(input, src), [input, src]);
   const filtered = useMemo(
     () => history.filter((h) => matchesComparator(h, filter)),
     [history, filter],
   );
+
+  function runProvision() {
+    onProvision?.(plan);
+    setHistory((prev) => [interpret(input), ...prev].slice(0, 8));
+  }
+
 
   function commit() {
     if (!input.trim()) return;
