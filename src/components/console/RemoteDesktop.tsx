@@ -59,13 +59,20 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
   );
+  const [winPos, setWinPos] = useState<Record<string, { x: number; y: number }>>({
+    thunar: { x: 56, y: 18 },
+    term: { x: 26, y: 24 },
+  });
+  const [topWin, setTopWin] = useState<string>("thunar");
   const [drag, setDrag] = useState<{
+    kind: "icon" | "window";
     label: string;
     dx: number;
     dy: number;
     moved: boolean;
   } | null>(null);
   const [overTrash, setOverTrash] = useState(false);
+
   const [trashed, setTrashed] = useState<string[]>([]);
   const dragMovedRef = useRef(false);
   const [busLog, setBusLog] = useState<string[]>([]);
@@ -181,24 +188,59 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     setCursor({ x: Math.round(x), y: Math.round(y) });
 
     if (!drag) return;
-    const nx = Math.min(94, Math.max(4, x - drag.dx));
-    const ny = Math.min(90, Math.max(12, y - drag.dy));
-    setPos((prev) => ({ ...prev, [drag.label]: { x: nx, y: ny } }));
+    const isWin = drag.kind === "window";
+    const nx = Math.min(isWin ? 74 : 94, Math.max(isWin ? 1 : 4, x - drag.dx));
+    const ny = Math.min(isWin ? 74 : 90, Math.max(isWin ? 5 : 12, y - drag.dy));
+    if (isWin) setWinPos((prev) => ({ ...prev, [drag.label]: { x: nx, y: ny } }));
+    else setPos((prev) => ({ ...prev, [drag.label]: { x: nx, y: ny } }));
     if (!drag.moved) {
       dragMovedRef.current = true;
       setDrag({ ...drag, moved: true });
-      emit(`xdnd: drag begin · ${drag.label} (motion via ${mouse.bdf})`);
+      emit(
+        isWin
+          ? `xfwm4: move window · ${drag.label} (motion via ${mouse.bdf})`
+          : `xdnd: drag begin · ${drag.label} (motion via ${mouse.bdf})`,
+      );
     }
+    if (isWin) return;
     const bin = pos["Trash"];
     setOverTrash(
       drag.label !== "Trash" && bin != null && Math.abs(nx - bin.x) < 7 && Math.abs(ny - bin.y) < 9,
     );
   }
 
+  function wp(label: string) {
+    return winPos[label] ?? { x: 30, y: 20 };
+  }
+
+  function startWindowDrag(e: React.MouseEvent, label: string) {
+    if (!mouseLive) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const r = frameRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const p = winPos[label] ?? { x: 30, y: 20 };
+    setTopWin(label);
+    setDrag({
+      kind: "window",
+      label,
+      dx: ((e.clientX - r.left) / r.width) * 100 - p.x,
+      dy: ((e.clientY - r.top) / r.height) * 100 - p.y,
+      moved: false,
+    });
+  }
+
   function endDrag() {
     if (!drag) return;
     const label = drag.label;
-    if (drag.moved && overTrash && label !== "Trash") {
+    if (drag.kind === "window") {
+      if (drag.moved) {
+        const p = winPos[label];
+        emit(
+          `xfwm4: window placed · ${label} @ ${Math.round(p?.x ?? 0)},${Math.round(p?.y ?? 0)}`,
+        );
+      }
+    } else if (drag.moved && overTrash && label !== "Trash") {
       setTrashed((prev) => [...prev, label]);
       emit(`gio trash "${DESKTOP_ICONS.find((i) => i.label === label)?.path}" · ${label} → Trash`);
       setSelected(null);
@@ -213,6 +255,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       dragMovedRef.current = false;
     }, 0);
   }
+
 
 
 
@@ -321,6 +364,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       const r = frameRef.current?.getBoundingClientRect();
                       if (!r) return;
                       setDrag({
+                        kind: "icon",
+
                         label: icon.label,
                         dx: ((e.clientX - r.left) / r.width) * 100 - p.x,
                         dy: ((e.clientY - r.top) / r.height) * 100 - p.y,
@@ -358,8 +403,20 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
               {/* thunar window opened from a desktop icon */}
               {openWin && (
-                <div className="absolute right-[6%] top-[18%] z-30 w-[38%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px]">
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5]">
+                <div
+                  style={{ left: `${wp("thunar").x}%`, top: `${wp("thunar").y}%` }}
+                  onMouseDown={() => setTopWin("thunar")}
+                  className={`absolute w-[38%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px] ${
+                    topWin === "thunar" ? "z-40" : "z-30"
+                  } ${drag?.kind === "window" && drag.label === "thunar" ? "opacity-90" : ""}`}
+                >
+                  <div
+                    onMouseDown={(e) => startWindowDrag(e, "thunar")}
+                    className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
+                      mouseLive ? "cursor-none" : "cursor-default"
+                    }`}
+                  >
+
                     <button
                       type="button"
                       aria-label="Close window"
@@ -392,8 +449,20 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 </div>
               )}
               {/* terminal window */}
-              <div className="absolute left-[26%] top-[24%] w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px]">
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5]">
+              <div
+                style={{ left: `${wp("term").x}%`, top: `${wp("term").y}%` }}
+                onMouseDown={() => setTopWin("term")}
+                className={`absolute w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px] ${
+                  topWin === "term" ? "z-40" : "z-30"
+                } ${drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""}`}
+              >
+                <div
+                  onMouseDown={(e) => startWindowDrag(e, "term")}
+                  className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
+                    mouseLive ? "cursor-none" : "cursor-default"
+                  }`}
+                >
+
                   <span className="h-1.5 w-1.5 rounded-full bg-destructive/70" />
                   <span className="h-1.5 w-1.5 rounded-full bg-amber/70" />
                   <span className="h-1.5 w-1.5 rounded-full bg-mint/70" />
