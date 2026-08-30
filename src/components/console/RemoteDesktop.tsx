@@ -653,6 +653,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               <div
                 style={{ left: `${wp("term").x}%`, top: `${wp("term").y}%` }}
                 onMouseDown={() => setTopWin("term")}
+                onMouseEnter={() => hoverFocus("term")}
+
                 className={`absolute w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px] ${
                   topWin === "term" ? "z-40" : "z-30"
                 } ${drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""}`}
