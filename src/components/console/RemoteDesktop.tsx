@@ -36,7 +36,7 @@ const HANDSHAKE = [
   "channel join: rdpdr rdpsnd cliprdr",
   "graphics: AVC444 pipeline negotiated",
   "usb bus enumerate · bdf map exported",
-  "desktop session resumed · XFCE",
+  "display-manager: lightdm.service active · session resumed (XFCE)",
 ];
 
 const DESKTOP_ICONS: Array<{
