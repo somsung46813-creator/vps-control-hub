@@ -59,13 +59,20 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
   );
+  const [winPos, setWinPos] = useState<Record<string, { x: number; y: number }>>({
+    thunar: { x: 56, y: 18 },
+    term: { x: 26, y: 24 },
+  });
+  const [topWin, setTopWin] = useState<string>("thunar");
   const [drag, setDrag] = useState<{
+    kind: "icon" | "window";
     label: string;
     dx: number;
     dy: number;
     moved: boolean;
   } | null>(null);
   const [overTrash, setOverTrash] = useState(false);
+
   const [trashed, setTrashed] = useState<string[]>([]);
   const dragMovedRef = useRef(false);
   const [busLog, setBusLog] = useState<string[]>([]);
