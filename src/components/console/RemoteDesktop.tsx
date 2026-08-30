@@ -119,6 +119,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       prev.map((x) => (x.id === d.id ? { ...x, attached: !x.attached } : x)),
     );
     emit(d.attached ? detachLine(d, guest) : attachLine({ ...d, attached: true }, guest));
+    // pulling both HID endpoints off the bus drops the grab back to the host
+    if (d.attached && (d.cls === "mouse" || d.cls === "keyboard")) {
+      const other = d.cls === "mouse" ? keyboard : mouse;
+      if (grabbed && !other.attached) {
+        setGrabbed(false);
+        emit("input grab released → host (no HID endpoints bound)");
+      }
+    }
   }
 
   function move(e: React.MouseEvent) {
