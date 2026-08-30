@@ -231,10 +231,6 @@
   grid-template-columns: var(--console-split);
   align-items: start;
 }
-@container (max-width: 0px) {
-  /* placeholder so container queries stay valid where unsupported */
-  .console-split { grid-template-columns: var(--console-split); }
-}
 @media (max-width: 78rem) {
   .console-split {
     grid-template-columns: repeat(auto-fit, minmax(min(var(--console-min-col), 100%), 1fr));
