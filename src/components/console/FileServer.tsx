@@ -6,17 +6,21 @@ import {
   type HostFile,
   type Perms,
 } from "@/lib/filestore";
+import { isDebPackage } from "@/lib/guests";
 import type { Vm } from "@/lib/fleet";
 
 type Props = {
   vm: Vm;
   files: HostFile[];
+  installedPackages: string[];
   onUpload: (files: FileList) => void;
   onDownload: (file: HostFile) => void;
   onRun: (file: HostFile) => void;
+  onInstall: (file: HostFile) => void;
   onDelete: (file: HostFile) => void;
   onTogglePerm: (file: HostFile, bit: keyof Perms) => void;
 };
+
 
 export function FileServer({
   vm,
