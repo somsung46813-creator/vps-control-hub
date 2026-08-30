@@ -34,10 +34,15 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [devices, setDevices] = useState<IoDevice[]>(() => ioDevices(guest));
   const [typed, setTyped] = useState("");
   const [busLog, setBusLog] = useState<string[]>([]);
+  const [grabbed, setGrabbed] = useState(true);
   const frameRef = useRef<HTMLDivElement | null>(null);
 
   const mouse = devices.find((d) => d.cls === "mouse")!;
   const keyboard = devices.find((d) => d.cls === "keyboard")!;
+
+  // input only reaches the guest when the device is attached AND the viewer holds the grab
+  const mouseLive = mouse.attached && grabbed;
+  const keyboardLive = keyboard.attached && grabbed;
 
   const emit = useCallback(
     (line: string) => {
@@ -56,9 +61,23 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     return () => clearTimeout(t);
   }, [phase]);
 
-  // keyboard passthrough — only when the HID keyboard is attached to the bus
+  // Escape always releases the grab back to the local desktop
   useEffect(() => {
-    if (!done || !keyboard.attached) return;
+    if (!done || !grabbed) return;
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setGrabbed(false);
+        emit("input grab released → host (Escape)");
+      }
+    }
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [done, grabbed, emit]);
+
+  // keyboard passthrough — only while the viewer holds the input grab
+  useEffect(() => {
+    if (!done || !keyboardLive) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") return;
       e.preventDefault();
@@ -68,7 +87,16 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [done, keyboard.attached]);
+  }, [done, keyboardLive]);
+
+  function toggleGrab() {
+    emit(
+      grabbed
+        ? "input grab released → host desktop (mouse + kbd local)"
+        : `input grabbed → ${guest.name} (mouse ${mouse.bdf} + kbd ${keyboard.bdf} captured · Esc releases)`,
+    );
+    setGrabbed(!grabbed);
+  }
 
   function toggleDevice(d: IoDevice) {
     setDevices((prev) =>
@@ -79,7 +107,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
   function move(e: React.MouseEvent) {
     const el = frameRef.current;
-    if (!el || !mouse.attached) return;
+    if (!el || !mouseLive) return;
     const r = el.getBoundingClientRect();
     setCursor({
       x: Math.round(((e.clientX - r.left) / r.width) * 100),
@@ -107,6 +135,19 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               {done ? "connected · TLS 1.3" : "handshaking…"}
             </span>
             <button
+              onClick={toggleGrab}
+              disabled={!done}
+              aria-pressed={grabbed}
+              aria-label={grabbed ? "Release input to local desktop" : "Grab mouse and keyboard input"}
+              className={`text-[10px] px-2 py-1 rounded ring-1 font-mono transition disabled:opacity-40 ${
+                grabbed
+                  ? "text-neon ring-neon/50 bg-neon/10 hover:bg-neon/20"
+                  : "text-amber ring-amber/50 bg-amber/10 hover:bg-amber/20"
+              }`}
+            >
+              {grabbed ? "⤓ release input" : "⤒ grab input"}
+            </button>
+            <button
               onClick={onClose}
               aria-label="Close remote desktop"
               className="text-[10px] px-2 py-1 rounded ring-1 ring-railedge text-dim hover:text-destructive transition"
@@ -121,10 +162,22 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
         <div
           ref={frameRef}
           onMouseMove={move}
+          onClick={() => {
+            if (done && !grabbed) toggleGrab();
+          }}
           className={`relative aspect-video bg-[#0a141f] overflow-hidden font-mono select-none ${
-            mouse.attached ? "cursor-none" : "cursor-not-allowed"
+            mouseLive ? "cursor-none" : grabbed ? "cursor-not-allowed" : "cursor-pointer"
           }`}
         >
+          {/* released-input overlay — click to re-grab */}
+          {done && !grabbed && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-void/60 backdrop-blur-[2px]">
+              <p className="text-sm font-mono text-amber">input released — local desktop has control</p>
+              <p className="text-[11px] font-mono text-dim">
+                click the display or press “grab input” to send mouse + keyboard to {guest.name}
+              </p>
+            </div>
+          )}
 
           {!done ? (
             <div className="absolute inset-0 p-5 text-[11px] leading-5 text-mint/90">
@@ -172,9 +225,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     ubuntu@{guest.name}:~$ {typed}
                     <span className="animate-pulse">▌</span>
                   </p>
-                  {!keyboard.attached && (
+                  {!keyboard.attached ? (
                     <p className="text-amber">input: no keyboard on bus — attach ⌨ to type</p>
-                  )}
+                  ) : !grabbed ? (
+                    <p className="text-amber">input: grab released — keystrokes go to local desktop</p>
+                  ) : null}
                 </div>
               </div>
               {/* bottom taskbar */}
@@ -184,7 +239,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span>ws 1 · {conn.rdpTarget}</span>
               </div>
               {/* remote cursor */}
-              {mouse.attached && (
+              {mouseLive && (
                 <div
                   className="absolute h-2.5 w-2.5 rounded-full bg-neon/90 shadow-[0_0_8px_rgba(120,220,255,0.9)] pointer-events-none transition-[left,top] duration-75"
                   style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }}
@@ -250,7 +305,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
             VRDE {conn.rdpTarget} · {guest.osType} · {done ? "1280×720 @ 32bpp" : "negotiating"}
           </span>
           <span>
-            ptr {cursor.x},{cursor.y} · {mouse.attached ? `mouse ${mouse.bdf}` : "mouse detached"} ·{" "}
+            ptr {cursor.x},{cursor.y} ·{" "}
+            <span className={grabbed ? "text-neon" : "text-amber"}>
+              {grabbed ? "grab: guest" : "grab: local"}
+            </span>{" "}
+            · {mouse.attached ? `mouse ${mouse.bdf}` : "mouse detached"} ·{" "}
             {keyboard.attached ? `kbd ${keyboard.bdf}` : "kbd detached"}
           </span>
         </div>
