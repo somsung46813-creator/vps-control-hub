@@ -314,6 +314,10 @@ function Console() {
     const meta = parseDeb(file.name);
     push(makeLog("net", `dpkg -i ${file.path} · ${meta.pkg} ${meta.version} (${meta.arch})`));
     setInstalledPackages((prev) => (prev.includes(file.id) ? prev : [...prev, file.id]));
+    if (/^lightdm/i.test(meta.pkg)) {
+      installHostLightdm(host.id, `dpkg -i ${file.path}`);
+      return;
+    }
     setTimeout(() => {
       if (isHypervisorPackage(file.name)) {
         setHypervisor((prev) => ({
