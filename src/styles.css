@@ -264,6 +264,20 @@
   min-width: 0;
 }
 
+/* tablet (<= 64rem): single workspace column, medium gutters */
+@media (max-width: 64rem) {
+  :root {
+    --console-min-col: 100%;
+    --console-min-card: 11rem;
+    --console-pad-x: 1rem;
+    --console-pad-y: 1rem;
+    --console-gap: 0.75rem;
+  }
+  .console-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* phone: denser cards (2-up gauges) and tighter gutters */
 @media (max-width: 40rem) {
   :root {
@@ -272,7 +286,13 @@
     --console-pad-y: 0.875rem;
     --console-gap: 0.625rem;
   }
+  /* horizontally scroll wide data tables instead of clipping them */
+  .console-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
+
 
 /* ultrawide: allow a third rail of panels without stretching cards */
 @media (min-width: 110rem) {
