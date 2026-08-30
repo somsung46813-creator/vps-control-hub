@@ -113,6 +113,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [firefoxInstalled, setFirefoxInstalled] = useState(false);
   const [installingFox, setInstallingFox] = useState(false);
   const [rdpGen, setRdpGen] = useState(0); // bumped when the RDP stack is reinstalled
+  // session health / auto-reconnect
+  const [autoReconnect, setAutoReconnect] = useState(true);
+  const [retries, setRetries] = useState(0);
+  const [rtt, setRtt] = useState(18);
+  const [linkState, setLinkState] = useState<"up" | "stalled" | "reconnecting">("up");
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(DESKTOP_ICONS.map((i, n) => [i.label, { x: 7, y: 18 + n * 18 }])),
   );
@@ -200,6 +205,57 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     const t = setTimeout(() => setPhase((p) => p + 1), 380);
     return () => clearTimeout(t);
   }, [phase]);
+
+  // ── session health check: heartbeat over the RDP link ────────────────────
+  useEffect(() => {
+    if (!done) return;
+    setLinkState("up");
+    const iv = setInterval(() => {
+      const beat = Math.round(12 + Math.random() * 40);
+      setRtt(beat);
+      // occasional link stall — the health check flags it for the reconnect loop
+      if (Math.random() < 0.04) {
+        setLinkState("stalled");
+        emit(`rdp health: heartbeat timeout (${beat} ms baseline) · T.128 channel lost`);
+        setDone(false);
+      }
+    }, 4000);
+    return () => clearInterval(iv);
+  }, [done, emit]);
+
+  // ── auto-reconnect: retry the handshake whenever the link drops or times out
+  useEffect(() => {
+    if (done || !autoReconnect) return;
+    const t = setTimeout(() => {
+      if (phase >= HANDSHAKE.length) return; // handshake is already completing
+      setLinkState("reconnecting");
+      setRetries((r) => r + 1);
+      emit("rdp health: handshake timed out · auto-reconnect attempt queued");
+      setPhase(0);
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [done, autoReconnect, phase, emit]);
+
+  // a stalled link restarts the handshake immediately when auto-reconnect is on
+  useEffect(() => {
+    if (linkState !== "stalled" || !autoReconnect) return;
+    const t = setTimeout(() => {
+      setLinkState("reconnecting");
+      setRetries((r) => r + 1);
+      emit("rdp health: reconnecting · renegotiating TLS + channel join");
+      setPhase(0);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [linkState, autoReconnect, emit]);
+
+  function reconnectNow() {
+    setLinkState("reconnecting");
+    setRetries((r) => r + 1);
+    setDone(false);
+    setPhase(0);
+    emit("rdp health: manual reconnect · re-running handshake");
+  }
+
 
   // Escape always releases the grab back to the local desktop
   useEffect(() => {
@@ -299,6 +355,45 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }
 
   // tear down and rebuild the VRDE/xrdp stack, then replay the RDP handshake
+  // one-click launcher: start a browser inside the session and focus its window
+  function launchBrowser(app: BrowserApp) {
+    if (app === "chromium" && !chromiumInstalled) {
+      setChromiumInstalled(true);
+      setTrashed((prev) => prev.filter((l) => l !== "Chromium"));
+      setTermLines((l) =>
+        [...l, "ubuntu@vectorad:~$ sudo apt install -y chromium-browser", "Setting up chromium-browser ..."].slice(-9),
+      );
+      emit("gio: chromium.desktop registered · launchable icon added to desktop");
+    }
+    if (app === "firefox" && !firefoxInstalled) {
+      installFirefox();
+    }
+    setBrowserApp(app);
+    setFoxWin(true);
+    setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
+    setTopWin("firefox");
+    setSelected(app === "chromium" ? "Chromium" : "Firefox");
+    setFoxReload((n) => n + 1);
+    emit(`${app}: launcher exec · window raised and focused by xfwm4`);
+  }
+
+  // one-click clipboard pull: host clipboard → guest prompt
+  async function pasteFromHost() {
+    if (!hostToGuest) return;
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) return;
+      const flat = text.replace(/\s+/g, " ").trim();
+      setTyped((t) => (t + flat).slice(-48));
+      setClipGuest(flat);
+      setClipXfer(`host → guest · ${new Blob([text]).size} B · CF_UNICODETEXT`);
+      emit(`cliprdr: host clipboard pulled · ${new Blob([text]).size} bytes → ${guest.name}`);
+    } catch {
+      setClipXfer("host → guest · blocked by browser permission");
+      emit("cliprdr: host clipboard read denied — permission");
+    }
+  }
+
   function reinstallRdp(via: string) {
     emit(`apt: ${via} · purging xrdp + VRDE extension pack`);
     setDone(false);
@@ -1731,6 +1826,14 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
             >
               copy guest selection → host clipboard
             </button>
+            <button
+              type="button"
+              onClick={pasteFromHost}
+              disabled={!hostToGuest}
+              className="mt-1 w-full text-[9px] font-mono px-2 py-1 rounded ring-1 ring-railedge text-ink hover:bg-panel/70 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              paste host clipboard → guest prompt
+            </button>
           </div>
           <div className="px-3 py-2 border-t border-railedge min-h-[3.5rem]">
 
@@ -1782,6 +1885,51 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 {installingFox ? "installing firefox…" : "🦊 install firefox"}
               </button>
             )}
+            <button
+              type="button"
+              title="launch Firefox in the RDP session and focus its window"
+              onClick={() => launchBrowser("firefox")}
+              disabled={!done}
+              className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 disabled:opacity-40 transition"
+            >
+              🦊 launch firefox
+            </button>
+            <button
+              type="button"
+              title="launch Chromium in the RDP session and focus its window"
+              onClick={() => launchBrowser("chromium")}
+              disabled={!done}
+              className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 disabled:opacity-40 transition"
+            >
+              🧭 launch chromium
+            </button>
+          </span>
+          <span className="flex items-center gap-2">
+            <span
+              className={
+                linkState === "up" ? "text-mint" : linkState === "stalled" ? "text-amber" : "text-neon"
+              }
+            >
+              link {linkState} · rtt {rtt} ms{retries > 0 ? ` · retries ${retries}` : ""}
+            </span>
+            <button
+              type="button"
+              title="toggle automatic reconnect on handshake loss or timeout"
+              onClick={() => setAutoReconnect((v) => !v)}
+              className={`px-1.5 py-0.5 rounded ring-1 transition ${
+                autoReconnect ? "text-neon ring-neon/40 bg-neon/10" : "text-dim ring-railedge hover:text-ink"
+              }`}
+            >
+              auto-reconnect {autoReconnect ? "on" : "off"}
+            </button>
+            <button
+              type="button"
+              title="reconnect the RDP session now"
+              onClick={reconnectNow}
+              className="px-1.5 py-0.5 rounded ring-1 ring-railedge text-dim hover:text-neon hover:ring-neon/40 transition"
+            >
+              ⟲ reconnect
+            </button>
           </span>
           <span>
             ptr {cursor.x},{cursor.y} ·{" "}
