@@ -926,7 +926,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="text-mint">●</span>
               </div>
               {/* desktop icons — click to select, double click to open, drag to move / drop on Trash */}
-              {DESKTOP_ICONS.filter((i) => !trashed.includes(i.label)).map((icon) => {
+              {(chromeShortcut ? [...DESKTOP_ICONS, CHROME_ICON] : DESKTOP_ICONS)
+                .filter((i) => !trashed.includes(i.label))
+                .map((icon) => {
                 const p = pos[icon.label] ?? { x: 3, y: 14 };
                 const isDragging = drag?.label === icon.label;
                 const isTarget =
