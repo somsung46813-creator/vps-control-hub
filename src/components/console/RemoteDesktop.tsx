@@ -1,11 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Guest } from "@/lib/guests";
 import { guestConn } from "@/lib/guestshell";
+import {
+  attachLine,
+  CLASS_ICON,
+  detachLine,
+  ioDevices,
+  type IoDevice,
+} from "@/lib/iobus";
 
 type Props = {
   guest: Guest;
   hostIp: string;
   onClose: () => void;
+  onBusEvent?: (line: string) => void;
 };
 
 const HANDSHAKE = [
@@ -14,15 +22,30 @@ const HANDSHAKE = [
   "protocol: RDP 10.11 · credSSP channel up",
   "channel join: rdpdr rdpsnd cliprdr",
   "graphics: AVC444 pipeline negotiated",
+  "usb bus enumerate · bdf map exported",
   "desktop session resumed · XFCE",
 ];
 
-export function RemoteDesktop({ guest, hostIp, onClose }: Props) {
+export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const conn = guestConn(guest, hostIp);
   const [phase, setPhase] = useState(0); // handshake progress
   const [done, setDone] = useState(false);
   const [cursor, setCursor] = useState({ x: 62, y: 55 });
+  const [devices, setDevices] = useState<IoDevice[]>(() => ioDevices(guest));
+  const [typed, setTyped] = useState("");
+  const [busLog, setBusLog] = useState<string[]>([]);
   const frameRef = useRef<HTMLDivElement | null>(null);
+
+  const mouse = devices.find((d) => d.cls === "mouse")!;
+  const keyboard = devices.find((d) => d.cls === "keyboard")!;
+
+  const emit = useCallback(
+    (line: string) => {
+      setBusLog((prev) => [...prev, line].slice(-3));
+      onBusEvent?.(line);
+    },
+    [onBusEvent],
+  );
 
   useEffect(() => {
     if (phase >= HANDSHAKE.length) {
@@ -33,15 +56,37 @@ export function RemoteDesktop({ guest, hostIp, onClose }: Props) {
     return () => clearTimeout(t);
   }, [phase]);
 
+  // keyboard passthrough — only when the HID keyboard is attached to the bus
+  useEffect(() => {
+    if (!done || !keyboard.attached) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") return;
+      e.preventDefault();
+      if (e.key === "Backspace") setTyped((t) => t.slice(0, -1));
+      else if (e.key === "Enter") setTyped("");
+      else if (e.key.length === 1) setTyped((t) => (t + e.key).slice(-48));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [done, keyboard.attached]);
+
+  function toggleDevice(d: IoDevice) {
+    setDevices((prev) =>
+      prev.map((x) => (x.id === d.id ? { ...x, attached: !x.attached } : x)),
+    );
+    emit(d.attached ? detachLine(d, guest) : attachLine({ ...d, attached: true }, guest));
+  }
+
   function move(e: React.MouseEvent) {
     const el = frameRef.current;
-    if (!el) return;
+    if (!el || !mouse.attached) return;
     const r = el.getBoundingClientRect();
     setCursor({
       x: Math.round(((e.clientX - r.left) / r.width) * 100),
       y: Math.round(((e.clientY - r.top) / r.height) * 100),
     });
   }
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-void/80 backdrop-blur-sm p-4">
