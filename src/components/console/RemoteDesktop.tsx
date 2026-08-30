@@ -306,7 +306,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                   </button>
                 );
               })}
-              </div>
+
+
 
               {/* thunar window opened from a desktop icon */}
               {openWin && (
