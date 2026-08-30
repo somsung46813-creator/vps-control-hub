@@ -191,30 +191,13 @@
 }
 
 
-/* rail internals: header / nav / status, nav scrolls when docked on top */
+/* rail internals: brand header + status, status collapses when docked on top */
 .console-rail-inner {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
 }
-.console-rail-nav {
-  display: grid;
-  gap: 0.25rem;
-  align-content: start;
-  grid-auto-flow: row;
-  overflow: auto;
-}
 @media (max-width: 64rem) {
-  .console-rail-inner {
-    grid-template-rows: auto auto;
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .console-rail-nav {
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
   .console-rail-status {
     display: none;
   }
