@@ -263,7 +263,25 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     const out: string[] = [`ubuntu@${guest.name}:~$ ${cmd}`];
     const snap = cmd.match(/^sudo\s+snap\s+install\s+(\S+)/);
     const apt = cmd.match(/^sudo\s+apt(?:-get)?\s+install\s+(?:-y\s+)?(\S+)/);
-    if (snap) {
+    const cpChrome = /^cp\s+\/usr\/share\/applications\/google-chrome\.desktop\s+~\/Desktop\/?$/.test(cmd);
+    const chmodChrome = /^chmod\s+\+x\s+~\/Desktop\/google-chrome\.desktop$/.test(cmd);
+    if (cpChrome) {
+      setChromeShortcut((prev) => prev ?? "noexec");
+      setTrashed((prev) => prev.filter((l) => l !== "Chrome"));
+      emit(`gio: google-chrome.desktop copied → ~/Desktop (mode 0644, not yet launchable)`);
+      out.push("# shortcut copied — run: chmod +x ~/Desktop/google-chrome.desktop");
+    } else if (chmodChrome) {
+      if (!chromeShortcut) {
+        out.push("chmod: cannot access '/home/ubuntu/Desktop/google-chrome.desktop': No such file or directory");
+        emit("chmod: ENOENT · copy the .desktop file to ~/Desktop first");
+      } else {
+        setChromeShortcut("exec");
+        emit("chmod: 0755 ~/Desktop/google-chrome.desktop · shortcut trusted, launchable");
+        out.push("# google-chrome.desktop is now executable — double-click the Chrome icon");
+      }
+    } else if (/^ls\s+~?\/?Desktop\/?$/.test(cmd)) {
+      out.push(chromeShortcut ? "google-chrome.desktop" : "(empty)");
+    } else if (snap) {
       out.push(`Download snap "${snap[1]}" (4021) from Snap Store`, `${snap[1]} 128.0 from Mozilla✓ installed`);
       emit(`snapd: ${snap[1]} installed in ${guest.name}`);
     } else if (apt) {
