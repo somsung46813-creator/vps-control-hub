@@ -79,6 +79,14 @@ function Console() {
     ...seedFiles("vm-1"),
     ...seedFiles("vm-2").slice(0, 1),
   ]);
+  const [hypervisor, setHypervisor] = useState<Hypervisor>({
+    installedOn: [],
+    version: null,
+    packageName: null,
+  });
+  const [installedPackages, setInstalledPackages] = useState<string[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
+
 
 
   useEffect(() => {
