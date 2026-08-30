@@ -232,8 +232,25 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   // ── cut / copy from the remote desktop into the cliprdr channel ──────────
   function clipPayload(label: string | null) {
     if (label) return DESKTOP_ICONS.find((i) => i.label === label)?.path ?? label;
-    return typed || clipGuest;
+    return termSel || typed || clipGuest;
   }
+
+  // xfwm4 focus-follows-mouse — hovering a window raises/focuses it
+  function hoverFocus(win: string) {
+    if (!focusFollow || !mouseLive || topWin === win) return;
+    setTopWin(win);
+    emit(`xfwm4: focus follows mouse · ${win} activated (pointer ${mouse.bdf})`);
+  }
+
+  // select a line of terminal scrollback with the pointer (PRIMARY selection)
+  function selectTermLine(line: string) {
+    if (!mouseLive) return;
+    setTermSel(line);
+    setClipGuest(line);
+    setClipXfer(`primary selection · ${new Blob([line]).size} B · UTF8_STRING`);
+    emit(`cliprdr: PRIMARY selection · ${line.slice(0, 40)}`);
+  }
+
 
   async function copyToChannel(label: string | null, cut = false) {
     const payload = clipPayload(label);
