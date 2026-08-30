@@ -691,7 +691,48 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 <span className="flex-1" />
                 <span>ws 1 · {conn.rdpTarget}</span>
               </div>
+              {/* xfdesktop context menu — cut / copy / paste over the cliprdr channel */}
+              {menu && (
+                <div
+                  style={{ left: `${Math.min(menu.x, 72)}%`, top: `${Math.min(menu.y, 70)}%` }}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="absolute z-50 w-44 rounded-md bg-[#16273a]/98 ring-1 ring-[#3d5a7a] shadow-2xl py-1 text-[10px] text-[#c8d6e5]"
+                >
+                  <p className="px-2 pb-1 text-[9px] text-[#8fa8c0] truncate border-b border-[#3d5a7a]/60">
+                    {menu.label ?? "terminal"} · cliprdr
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void copyToChannel(menu.label)}
+                    className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                  >
+                    Copy <span className="float-right text-[#8fa8c0]">Ctrl+C</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyToChannel(menu.label, true)}
+                    className="w-full text-left px-2 py-1 hover:bg-[#2e4258]"
+                  >
+                    Cut <span className="float-right text-[#8fa8c0]">Ctrl+X</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!clipGuest}
+                    onClick={pasteToTerminal}
+                    className="w-full text-left px-2 py-1 hover:bg-[#2e4258] disabled:opacity-40"
+                  >
+                    Paste to terminal <span className="float-right text-[#8fa8c0]">Ctrl+V</span>
+                  </button>
+                  {clipGuest && (
+                    <p className="px-2 pt-1 text-[9px] text-[#7ec8ff] truncate border-t border-[#3d5a7a]/60">
+                      clip: {clipGuest}
+                    </p>
+                  )}
+                </div>
+              )}
               {/* remote cursor */}
+
               {mouseLive && (
                 <div
                   className="absolute h-2.5 w-2.5 rounded-full bg-neon/90 shadow-[0_0_8px_rgba(120,220,255,0.9)] pointer-events-none transition-[left,top] duration-75"
