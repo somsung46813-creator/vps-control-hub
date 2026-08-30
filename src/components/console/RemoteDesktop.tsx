@@ -86,6 +86,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     firefox: { x: 20, y: 12 },
   });
   const [topWin, setTopWin] = useState<string>("thunar");
+  const [winState, setWinState] = useState<Record<string, "normal" | "min" | "max">>({
+    thunar: "normal",
+    term: "normal",
+    firefox: "normal",
+  });
   const [focusFollow, setFocusFollow] = useState(true);
   const [termSel, setTermSel] = useState<string | null>(null);
 
@@ -359,12 +364,15 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     if (label === "Firefox") {
       emit(`firefox: launching ${icon.path} · pointer click via ${mouse.bdf}`);
       setFoxWin(true);
+      setWinState((s) => ({ ...s, firefox: s['firefox'] === "max" ? "max" : "normal" }));
       setTopWin("firefox");
       setTimeout(() => emit("firefox: process forked · pid 4821 · GPU compositing enabled"), 500);
       setTimeout(() => emit("firefox: session restored · https://start.mozilla.org rendered"), 1100);
       return;
     }
     setOpenWin(label);
+    setWinState((s) => ({ ...s, thunar: s['thunar'] === "max" ? "max" : "normal" }));
+    setTopWin("thunar");
     emit(`thunar: open ${icon.path} · pointer click via ${mouse.bdf}`);
   }
 
@@ -397,9 +405,12 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
       drag.label !== "Trash" && bin != null && Math.abs(nx - bin.x) < 7 && Math.abs(ny - bin.y) < 9,
     );
     // firefox window is a drop target — hit-test cursor against its rect
-    if (foxWin && drag.label !== "Firefox") {
-      const fp = wp("firefox");
-      const hit = x >= fp.x && x <= fp.x + 46 && y >= fp.y && y <= fp.y + 42;
+    if (foxWin && ws("firefox") !== "min" && drag.label !== "Firefox") {
+      const maxed = ws("firefox") === "max";
+      const fp = maxed ? { x: 0, y: 4.5 } : wp("firefox");
+      const w = maxed ? 100 : 46;
+      const h = maxed ? 90 : 42;
+      const hit = x >= fp.x && x <= fp.x + w && y >= fp.y && y <= fp.y + h;
       if (hit !== overFox) setOverFox(hit);
     } else if (overFox) {
       setOverFox(false);
@@ -410,14 +421,50 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     return winPos[label] ?? { x: 30, y: 20 };
   }
 
+  // ── xfwm4 window states: normal / minimized (iconified) / maximized ───────
+  function ws(label: string) {
+    return winState[label] ?? "normal";
+  }
+
+  function winStyle(label: string, width: string): React.CSSProperties {
+    if (ws(label) === "max") return { left: "0%", top: "4.5%", width: "100%" };
+    const p = wp(label);
+    return { left: `${p.x}%`, top: `${p.y}%`, width };
+  }
+
+  function minimizeWin(label: string) {
+    setWinState((s) => ({ ...s, [label]: "min" }));
+    emit(`xfwm4: iconify · ${label} → taskbar (_NET_WM_STATE_HIDDEN)`);
+  }
+
+  function toggleMaximize(label: string) {
+    const next = ws(label) === "max" ? "normal" : "max";
+    setWinState((s) => ({ ...s, [label]: next }));
+    setTopWin(label);
+    emit(
+      next === "max"
+        ? `xfwm4: maximize · ${label} (_NET_WM_STATE_MAXIMIZED_VERT|HORZ)`
+        : `xfwm4: unmaximize · ${label} restored to ${Math.round(wp(label).x)},${Math.round(wp(label).y)}`,
+    );
+  }
+
+  function restoreWin(label: string) {
+    if (ws(label) === "min") {
+      setWinState((s) => ({ ...s, [label]: "normal" }));
+      emit(`xfwm4: deiconify · ${label} restored from taskbar`);
+    }
+    setTopWin(label);
+  }
+
   function startWindowDrag(e: React.MouseEvent, label: string) {
     if (!mouseLive) return;
     e.stopPropagation();
     e.preventDefault();
+    setTopWin(label);
+    if (ws(label) === "max") return; // maximized windows are pinned
     const r = frameRef.current?.getBoundingClientRect();
     if (!r) return;
     const p = winPos[label] ?? { x: 30, y: 20 };
-    setTopWin(label);
     setDrag({
       kind: "window",
       label,
@@ -634,18 +681,22 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
 
 
               {/* thunar window opened from a desktop icon */}
-              {openWin && (
+              {openWin && ws("thunar") !== "min" && (
                 <div
-                  style={{ left: `${wp("thunar").x}%`, top: `${wp("thunar").y}%` }}
+                  style={winStyle("thunar", "38%")}
                   onMouseDown={() => setTopWin("thunar")}
                   onMouseEnter={() => hoverFocus("thunar")}
 
-                  className={`absolute w-[38%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px] ${
+                  className={`absolute rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px] ${
                     topWin === "thunar" ? "z-40" : "z-30"
                   } ${drag?.kind === "window" && drag.label === "thunar" ? "opacity-90" : ""}`}
                 >
                   <div
                     onMouseDown={(e) => startWindowDrag(e, "thunar")}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      toggleMaximize("thunar");
+                    }}
                     className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
                       mouseLive ? "cursor-none" : "cursor-default"
                     }`}
@@ -661,8 +712,26 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       }}
                       className="h-2 w-2 rounded-full bg-destructive/80 hover:bg-destructive"
                     />
-                    <span className="h-2 w-2 rounded-full bg-amber/70" />
-                    <span className="h-2 w-2 rounded-full bg-mint/70" />
+                    <button
+                      type="button"
+                      aria-label="Minimize window"
+                      title="minimize"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        minimizeWin("thunar");
+                      }}
+                      className="h-2 w-2 rounded-full bg-amber/70 hover:bg-amber"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Maximize window"
+                      title="maximize"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMaximize("thunar");
+                      }}
+                      className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
+                    />
                     <span className="ml-1.5 truncate">
                       {openWin} — Thunar {DESKTOP_ICONS.find((i) => i.label === openWin)?.path}
                     </span>
@@ -683,12 +752,12 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 </div>
               )}
               {/* firefox browser window */}
-              {foxWin && (
+              {foxWin && ws("firefox") !== "min" && (
                 <div
-                  style={{ left: `${wp("firefox").x}%`, top: `${wp("firefox").y}%` }}
+                  style={winStyle("firefox", "46%")}
                   onMouseDown={() => setTopWin("firefox")}
                   onMouseEnter={() => hoverFocus("firefox")}
-                  className={`absolute w-[46%] rounded-md bg-[#101d2b]/95 shadow-2xl text-[10px] ${
+                  className={`absolute rounded-md bg-[#101d2b]/95 shadow-2xl text-[10px] ${
                     overFox ? "ring-2 ring-mint" : "ring-1 ring-[#3d5a7a]"
                   } ${
                     topWin === "firefox" ? "z-40" : "z-30"
@@ -696,6 +765,10 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                 >
                   <div
                     onMouseDown={(e) => startWindowDrag(e, "firefox")}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      toggleMaximize("firefox");
+                    }}
                     className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
                       mouseLive ? "cursor-none" : "cursor-default"
                     }`}
@@ -710,8 +783,26 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       }}
                       className="h-2 w-2 rounded-full bg-destructive/80 hover:bg-destructive"
                     />
-                    <span className="h-2 w-2 rounded-full bg-amber/70" />
-                    <span className="h-2 w-2 rounded-full bg-mint/70" />
+                    <button
+                      type="button"
+                      aria-label="Minimize Firefox"
+                      title="minimize"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        minimizeWin("firefox");
+                      }}
+                      className="h-2 w-2 rounded-full bg-amber/70 hover:bg-amber"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Maximize Firefox"
+                      title="maximize"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMaximize("firefox");
+                      }}
+                      className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
+                    />
                     <span className="ml-1.5 truncate">🦊 {foxTab.startsWith("file://") ? foxTab.split("/").pop() : "New Tab"} — Mozilla Firefox</span>
                   </div>
                   <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[#3d5a7a]/60">
@@ -733,24 +824,48 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               )}
               {/* terminal window */}
               <div
-                style={{ left: `${wp("term").x}%`, top: `${wp("term").y}%` }}
+                style={winStyle("term", "52%")}
                 onMouseDown={() => setTopWin("term")}
                 onMouseEnter={() => hoverFocus("term")}
 
-                className={`absolute w-[52%] rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px] ${
-                  topWin === "term" ? "z-40" : "z-30"
-                } ${drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""}`}
+                className={`absolute rounded-md bg-black/85 ring-1 ring-[#3d5a7a] shadow-xl text-[10px] ${
+                  ws("term") === "min" ? "hidden" : ""
+                } ${topWin === "term" ? "z-40" : "z-30"} ${
+                  drag?.kind === "window" && drag.label === "term" ? "opacity-90" : ""
+                }`}
               >
                 <div
                   onMouseDown={(e) => startWindowDrag(e, "term")}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    toggleMaximize("term");
+                  }}
                   className={`flex items-center gap-1.5 px-2 py-1 bg-[#22354a] rounded-t-md text-[#c8d6e5] select-none ${
                     mouseLive ? "cursor-none" : "cursor-default"
                   }`}
                 >
 
                   <span className="h-1.5 w-1.5 rounded-full bg-destructive/70" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber/70" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-mint/70" />
+                  <button
+                    type="button"
+                    aria-label="Minimize terminal"
+                    title="minimize"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      minimizeWin("term");
+                    }}
+                    className="h-1.5 w-1.5 rounded-full bg-amber/70 hover:bg-amber"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Maximize terminal"
+                    title="maximize"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMaximize("term");
+                    }}
+                    className="h-1.5 w-1.5 rounded-full bg-mint/70 hover:bg-mint"
+                  />
                   <span className="ml-1.5">ubuntu@{guest.name}: ~</span>
                 </div>
                 <div
@@ -809,7 +924,39 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               </div>
               {/* bottom taskbar */}
               <div className="absolute bottom-0 inset-x-0 h-6 bg-[#1b2b3d]/95 border-t border-black/50 flex items-center gap-2 px-2 text-[9px] text-[#8fa8c0]">
-                <span className="px-1.5 rounded bg-[#2e4258] text-[#c8d6e5]">Terminal Emulator</span>
+                {/* xfce4-panel window buttons — click to focus / minimize, dbl-click to maximize */}
+                {[
+                  { id: "term", label: "Terminal Emulator", open: true },
+                  { id: "thunar", label: openWin ? `${openWin} — Thunar` : "Thunar", open: !!openWin },
+                  { id: "firefox", label: "Mozilla Firefox", open: foxWin },
+                ]
+                  .filter((w) => w.open)
+                  .map((w) => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (ws(w.id) === "min") restoreWin(w.id);
+                        else if (topWin === w.id) minimizeWin(w.id);
+                        else restoreWin(w.id);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        toggleMaximize(w.id);
+                      }}
+                      className={`max-w-[26%] truncate px-1.5 rounded ring-1 transition ${
+                        ws(w.id) === "min"
+                          ? "text-[#8fa8c0] ring-[#3d5a7a] italic"
+                          : topWin === w.id
+                            ? "bg-[#2e4258] text-[#c8d6e5] ring-[#7ec8ff]/50"
+                            : "text-[#c8d6e5] ring-[#3d5a7a]"
+                      }`}
+                    >
+                      {ws(w.id) === "min" ? "▁ " : ws(w.id) === "max" ? "▣ " : "▪ "}
+                      {w.label}
+                    </button>
+                  ))}
                 <button
                   type="button"
                   onClick={(e) => {
