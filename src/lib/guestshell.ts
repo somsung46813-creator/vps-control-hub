@@ -186,6 +186,16 @@ export function runGuestCommand(cmd: string, guest: Guest, conn: GuestConn): str
       ];
       // session lines appended below
       const de = desktopFor(guest);
+      if (de && installed(guest).has("lightdm")) {
+        lines.push(
+          "lightdm: starting display manager on seat0",
+          `lightdm-gtk-greeter: rendering login screen on VRDE ${conn.vrdePort}`,
+          `greeter: session "${de.session}" selected for ${conn.user}`,
+          "",
+          `lightdm authenticated ${conn.user} — ${de.session} session live at ${conn.rdpTarget}`,
+        );
+        return lines;
+      }
       if (de && autostartGuests.has(guest.id)) {
         lines.push(`~/.xinitrc → exec ${de.startCmd}`);
         if (de.pkg === "xfce4") {
