@@ -10,6 +10,8 @@ import type { Vm } from "@/lib/fleet";
 type Props = {
   vm: Vm;
   hypervisor: Hypervisor;
+  hostLightdm: boolean;
+  onInstallLightdm: () => void;
   guests: Guest[];
   onCreate: (name: string, templateIndex: number) => void;
   onPower: (guest: Guest, action: "start" | "stop" | "pause") => void;
@@ -29,6 +31,8 @@ const statusTone: Record<Guest["status"], string> = {
 export function GuestManager({
   vm,
   hypervisor,
+  hostLightdm,
+  onInstallLightdm,
   guests,
   onCreate,
   onPower,

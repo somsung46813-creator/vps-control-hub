@@ -497,6 +497,8 @@ function Console() {
             <GuestManager
               vm={selected}
               hypervisor={hypervisor}
+              hostLightdm={hostLightdm.includes(selected.id)}
+              onInstallLightdm={() => installHostLightdm(selected.id, "apt install lightdm")}
               guests={hostGuests}
               onCreate={createGuest}
               onPower={powerGuest}
