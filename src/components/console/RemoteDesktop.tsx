@@ -688,7 +688,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                   style={{ left: `${wp("firefox").x}%`, top: `${wp("firefox").y}%` }}
                   onMouseDown={() => setTopWin("firefox")}
                   onMouseEnter={() => hoverFocus("firefox")}
-                  className={`absolute w-[46%] rounded-md bg-[#101d2b]/95 ring-1 ring-[#3d5a7a] shadow-2xl text-[10px] ${
+                  className={`absolute w-[46%] rounded-md bg-[#101d2b]/95 shadow-2xl text-[10px] ${
+                    overFox ? "ring-2 ring-mint" : "ring-1 ring-[#3d5a7a]"
+                  } ${
                     topWin === "firefox" ? "z-40" : "z-30"
                   } ${drag?.kind === "window" && drag.label === "firefox" ? "opacity-90" : ""}`}
                 >
