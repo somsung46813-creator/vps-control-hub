@@ -728,8 +728,30 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               {/* bottom taskbar */}
               <div className="absolute bottom-0 inset-x-0 h-6 bg-[#1b2b3d]/95 border-t border-black/50 flex items-center gap-2 px-2 text-[9px] text-[#8fa8c0]">
                 <span className="px-1.5 rounded bg-[#2e4258] text-[#c8d6e5]">Terminal Emulator</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const next = !focusFollow;
+                    setFocusFollow(next);
+                    emit(
+                      `xfwm4: focus mode ${next ? "focus-follows-mouse" : "click-to-focus"} (xfconf /general/focus_mode)`,
+                    );
+                  }}
+                  className={`px-1.5 rounded ring-1 transition ${
+                    focusFollow
+                      ? "bg-neon/15 text-neon ring-neon/40"
+                      : "text-[#8fa8c0] ring-[#3d5a7a]"
+                  }`}
+                >
+                  focus: {focusFollow ? "hover" : "click"}
+                </button>
+                {termSel && (
+                  <span className="truncate max-w-[38%] text-[#7ec8ff]">sel: {termSel}</span>
+                )}
                 <span className="flex-1" />
                 <span>ws 1 · {conn.rdpTarget}</span>
+
               </div>
               {/* xfdesktop context menu — cut / copy / paste over the cliprdr channel */}
               {menu && (
