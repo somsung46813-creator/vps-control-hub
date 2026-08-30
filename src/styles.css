@@ -162,7 +162,8 @@
   /* ratio between the primary and secondary console columns */
   --console-split: 1.15fr 1fr;
   /* breakpoint at which the side rail docks to the top */
-  --console-rail-break: 60rem;
+  --console-rail-break: 64rem;
+
 }
 
 /* shell: rail + main, collapsing to stacked rows on narrow viewports */
