@@ -246,6 +246,7 @@ export function planFromText(text: string, src: InterpreterSource, nonce?: strin
     desktop,
     autostart,
     browsers: detectBrowsers(text),
+    host: true,
     digest: guestKey({ name: guestName, spec: match.label }, src, nonce ?? `preview:${guestName}`),
     steps: [],
   };
@@ -275,6 +276,7 @@ export function planForGuest(
     desktop: true,
     autostart: g.autostart,
     browsers,
+    host: true,
     digest: g.signature ?? guestSignature(g, src),
     steps: [],
   };
