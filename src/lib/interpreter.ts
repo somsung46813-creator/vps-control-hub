@@ -294,16 +294,42 @@ export function browserSteps(plan: ProvisionPlan): string[] {
   return out;
 }
 
+/** Package name for a browser id (same package on host and guest). */
+export function browserPackage(id: BrowserId): string {
+  return BROWSER_META[id].pkg;
+}
+
+/** Host-OS layer: the display manager + RDP stack the guest sessions run on top of. */
+export const HOST_PACKAGES = ["lightdm", "lightdm-gtk-greeter", "xrdp"] as const;
+
+export function hostSteps(plan: ProvisionPlan): string[] {
+  const steps = [
+    `host exec · sudo apt-get update`,
+    `host exec · sudo apt-get install -y ${HOST_PACKAGES.join(" ")}`,
+    `host exec · systemctl enable --now lightdm.service`,
+    `host exec · systemctl enable --now xrdp.service · listening 0.0.0.0:3389`,
+    `host exec · adduser xrdp ssl-cert · sudo ufw allow 3389/tcp`,
+  ];
+  for (const id of plan.browsers) {
+    steps.push(`host exec · sudo apt-get install -y ${BROWSER_META[id].pkg}`);
+  }
+  steps.push(`host exec · systemctl set-default graphical.target`);
+  return steps;
+}
+
 export function provisionSteps(plan: ProvisionPlan, src: InterpreterSource): string[] {
   const pkg = src.armed ? `${src.pkg} ${src.version}` : "virtualbox (not installed)";
   const steps = [
     `interpreter &${BASE44_ID} · source ${pkg} · key ${plan.digest}`,
+  ];
+  if (plan.host !== false) steps.push(...hostSteps(plan));
+  steps.push(
     `VBoxManage createvm --name ${plan.guestName} --ostype ${plan.templateLabel} --register`,
     `VBoxManage modifyvm ${plan.guestName} --vram 128 --nic1 nat --audio none`,
     `VBoxManage createmedium disk --filename ${plan.guestName}.vdi --variant Standard`,
     `VBoxManage storagectl ${plan.guestName} --name SATA --add sata --controller IntelAhci`,
     `VBoxManage setextradata ${plan.guestName} spectrum/base44 ${plan.digest}`,
-  ];
+  );
   if (plan.desktop) {
     steps.push(
       `guest exec · apt-get install -y xorg xfce4 lightdm`,
@@ -320,4 +346,5 @@ export function provisionSteps(plan: ProvisionPlan, src: InterpreterSource): str
   steps.push(`VBoxManage modifyvm ${plan.guestName} --vrde on --vrdeport 3390`);
   return steps;
 }
+
 
