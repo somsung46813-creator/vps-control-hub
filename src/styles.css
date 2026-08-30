@@ -204,7 +204,7 @@
   grid-auto-flow: row;
   overflow: auto;
 }
-@media (max-width: 60rem) {
+@media (max-width: 64rem) {
   .console-rail-inner {
     grid-template-rows: auto auto;
     grid-template-columns: minmax(0, 1fr);
@@ -219,6 +219,7 @@
     display: none;
   }
 }
+
 
 /* fluid card grid: as many columns as fit, never narrower than --console-min-card */
 .console-cards {
