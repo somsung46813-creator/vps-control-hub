@@ -1002,6 +1002,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     topWin === "firefox" ? "z-40" : "z-30"
                   } ${drag?.kind === "window" && drag.label === "firefox" ? "opacity-90" : ""}`}
                 >
+                  <ResizeGrips label="firefox" />
+
                   <div
                     onMouseDown={(e) => startWindowDrag(e, "firefox")}
                     onDoubleClick={(e) => {
