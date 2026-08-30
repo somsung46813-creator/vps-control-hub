@@ -684,6 +684,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       label: null,
                     });
                   }}
+                  onAuxClick={(e) => {
+                    if (e.button !== 1) return;
+                    e.preventDefault();
+                    pasteToTerminal();
+                  }}
                 >
                   {termLines.length === 0 ? (
                     <>
@@ -692,11 +697,22 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                     </>
                   ) : (
                     termLines.map((l, i) => (
-                      <p key={`${l}-${i}`} className={l.includes("$ ") ? "" : "text-[#c8d6e5]"}>
+                      <p
+                        key={`${l}-${i}`}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setTopWin("term");
+                          selectTermLine(l);
+                        }}
+                        className={`${l.includes("$ ") ? "" : "text-[#c8d6e5]"} ${
+                          termSel === l ? "bg-[#2e4258] text-[#e6f2ff]" : ""
+                        } ${mouseLive ? "cursor-none" : ""}`}
+                      >
                         {l}
                       </p>
                     ))
                   )}
+
                   <p>
                     ubuntu@{guest.name}:~$ {typed}
                     <span className="animate-pulse">▌</span>
