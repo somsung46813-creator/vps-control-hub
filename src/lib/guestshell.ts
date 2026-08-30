@@ -140,6 +140,15 @@ function aptInstall(pkg: string, guest: Guest): string[] {
       `${DESKTOPS[pkg].session} installed. Run \`config autostart\` to make startx launch it automatically.`,
     );
   }
+  if (pkg === "lightdm") {
+    lines.push(
+      "",
+      "Configuring lightdm:",
+      "  systemctl set-default graphical.target",
+      "  Created symlink /etc/systemd/system/display-manager.service → lightdm.service",
+      `lightdm will present the GTK greeter on the next boot/startx — log in as ${connUserHint()} to start your desktop session.`,
+    );
+  }
   return lines;
 }
 
