@@ -90,14 +90,12 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   }, [done, keyboardLive]);
 
   function toggleGrab() {
-    setGrabbed((g) => {
-      emit(
-        g
-          ? "input grab released → host desktop (mouse + kbd local)"
-          : `input grabbed → ${guest.name} (mouse ${mouse.bdf} + kbd ${keyboard.bdf} captured · Esc releases)`,
-      );
-      return !g;
-    });
+    emit(
+      grabbed
+        ? "input grab released → host desktop (mouse + kbd local)"
+        : `input grabbed → ${guest.name} (mouse ${mouse.bdf} + kbd ${keyboard.bdf} captured · Esc releases)`,
+    );
+    setGrabbed(!grabbed);
   }
 
   function toggleDevice(d: IoDevice) {
