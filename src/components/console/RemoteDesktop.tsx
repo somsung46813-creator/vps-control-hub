@@ -112,6 +112,7 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [clipMode, setClipMode] = useState<CLIP_MODE>("bidirectional");
   const [clipGuest, setClipGuest] = useState("");
   const [clipXfer, setClipXfer] = useState<string | null>(null);
+  const [busOpen, setBusOpen] = useState(true);
   const frameRef = useRef<HTMLDivElement | null>(null);
 
 
