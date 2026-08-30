@@ -266,6 +266,76 @@ function Console() {
     }, 1200);
   }
 
+  function installPackage(file: HostFile) {
+    if (!file.perms.r) {
+      push(makeLog("err", `dpkg: cannot read ${file.path}`));
+      return;
+    }
+    const host = vms.find((v) => v.id === file.vmId);
+    if (!host) return;
+    const meta = parseDeb(file.name);
+    push(makeLog("net", `dpkg -i ${file.path} · ${meta.pkg} ${meta.version} (${meta.arch})`));
+    setInstalledPackages((prev) => (prev.includes(file.id) ? prev : [...prev, file.id]));
+    setTimeout(() => {
+      if (isHypervisorPackage(file.name)) {
+        setHypervisor((prev) => ({
+          version: meta.version,
+          packageName: meta.pkg,
+          installedOn: prev.installedOn.includes(host.id)
+            ? prev.installedOn
+            : [...prev.installedOn, host.id],
+        }));
+        push(makeLog("ok", `vboxdrv kernel module built · guest manager online on ${host.hostname}`));
+      } else {
+        push(makeLog("ok", `${meta.pkg} ${meta.version} configured on ${host.hostname}`));
+      }
+    }, 1600);
+  }
+
+  const hostGuests = useMemo(
+    () => guests.filter((g) => g.hostId === selected.id),
+    [guests, selected.id],
+  );
+
+  function createGuest(name: string, templateIndex: number) {
+    const tpl = GUEST_TEMPLATES[templateIndex]!;
+    const guest = makeGuest(name, selected.id, tpl, stamp());
+    setGuests((prev) => [guest, ...prev]);
+    push(makeLog("net", `VBoxManage createvm --name ${name} --ostype ${tpl.osType} --register`));
+    setTimeout(() => {
+      setGuests((prev) =>
+        prev.map((g) => (g.id === guest.id ? { ...g, status: "powered off" } : g)),
+      );
+      push(makeLog("ok", `${name} provisioned · ${tpl.diskGb} GB vdi attached`));
+    }, 1800);
+  }
+
+  function powerGuest(guest: Guest, action: "start" | "stop" | "pause") {
+    const next =
+      action === "start" ? "running" : action === "pause" ? "paused" : "powered off";
+    setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, status: next } : g)));
+    const verb = action === "start" ? "startvm" : action === "pause" ? "controlvm pause" : "controlvm poweroff";
+    push(
+      makeLog(action === "stop" ? "warn" : "ok", `VBoxManage ${verb} ${guest.name} · ${next}`),
+    );
+    if (action === "start") {
+      setVms((prev) =>
+        prev.map((v) =>
+          v.id === guest.hostId
+            ? { ...v, cpu: Math.min(96, v.cpu + 9), mem: Math.min(96, v.mem + 12) }
+            : v,
+        ),
+      );
+    }
+  }
+
+  function deleteGuest(guest: Guest) {
+    setGuests((prev) => prev.filter((g) => g.id !== guest.id));
+    push(makeLog("warn", `VBoxManage unregistervm ${guest.name} --delete`));
+  }
+
+
+
 
   return (
     <div className="min-h-screen bg-void text-ink flex">
