@@ -25,12 +25,15 @@ type Props = {
 export function FileServer({
   vm,
   files,
+  installedPackages,
   onUpload,
   onDownload,
   onRun,
+  onInstall,
   onDelete,
   onTogglePerm,
 }: Props) {
+
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
