@@ -706,8 +706,26 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                       }}
                       className="h-2 w-2 rounded-full bg-destructive/80 hover:bg-destructive"
                     />
-                    <span className="h-2 w-2 rounded-full bg-amber/70" />
-                    <span className="h-2 w-2 rounded-full bg-mint/70" />
+                    <button
+                      type="button"
+                      aria-label="Minimize window"
+                      title="minimize"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        minimizeWin("thunar");
+                      }}
+                      className="h-2 w-2 rounded-full bg-amber/70 hover:bg-amber"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Maximize window"
+                      title="maximize"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMaximize("thunar");
+                      }}
+                      className="h-2 w-2 rounded-full bg-mint/70 hover:bg-mint"
+                    />
                     <span className="ml-1.5 truncate">
                       {openWin} — Thunar {DESKTOP_ICONS.find((i) => i.label === openWin)?.path}
                     </span>
