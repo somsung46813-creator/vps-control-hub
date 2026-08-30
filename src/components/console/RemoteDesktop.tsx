@@ -113,6 +113,8 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const [foxLoading, setFoxLoading] = useState(false);
   const [foxResp, setFoxResp] = useState<HttpExchange | null>(null);
   const [httpView, setHttpView] = useState(false);
+  const [foxHtml, setFoxHtml] = useState<string | null>(null);
+  const [foxLive, setFoxLive] = useState(false);
   const [foxReload, setFoxReload] = useState(0);
 
 
@@ -396,27 +398,74 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     emit("firefox: session history forward");
   }
 
-  // network engine — fetch the current tab whenever it changes
+  // network engine — real fetch through the host VM proxy, sim fallback
   useEffect(() => {
     if (!foxWin) return;
     let alive = true;
     setFoxLoading(true);
+    setFoxHtml(null);
+    setFoxLive(false);
     const ex = simulateHttp(foxTab);
-    emit(`firefox: ${ex.method} ${ex.url} · ${ex.protocol}`);
-    const t = setTimeout(() => {
-      if (!alive) return;
-      setFoxResp(ex);
-      setFoxLoading(false);
-      emit(
-        `firefox: ${ex.status} ${ex.statusText} · ${ex.bytes} B · ttfb ${ex.ttfbMs}ms · ${ex.totalMs}ms`,
-      );
-    }, 320 + (ex.ttfbMs % 260));
+    emit(`firefox: ${ex.method} ${ex.url} · via enp0s3 NAT proxy`);
+
+    const local = ex.scheme === "about" || ex.scheme === "file";
+    if (local) {
+      const t = setTimeout(() => {
+        if (!alive) return;
+        setFoxResp(ex);
+        setFoxLoading(false);
+        emit(`firefox: ${ex.status} ${ex.statusText} · ${ex.bytes} B (local)`);
+      }, 180);
+      return () => {
+        alive = false;
+        clearTimeout(t);
+      };
+    }
+
+    (async () => {
+      try {
+        const r = await fetch(`/api/public/fetch?url=${encodeURIComponent(ex.url)}`);
+        const j = (await r.json()) as Record<string, unknown>;
+        if (!alive) return;
+        if (!r.ok || j['ok'] !== true) throw new Error(String(j['error'] ?? r.status));
+        const live: HttpExchange = {
+          ...ex,
+          url: String(j['url']),
+          status: Number(j['status']),
+          statusText: String(j['statusText'] || ""),
+          ttfbMs: Number(j['ttfbMs']),
+          totalMs: Number(j['totalMs']),
+          bytes: Number(j['bytes']),
+          title: String(j['title'] || ex.title),
+          heading: String(j['title'] || ex.heading),
+          lines: (j['lines'] as string[]) ?? [],
+          links: (j['links'] as { label: string; href: string }[]) ?? [],
+          responseHeaders: (j['responseHeaders'] as { name: string; value: string }[]) ?? [],
+        };
+        setFoxResp(live);
+        setFoxHtml((j['html'] as string | null) ?? null);
+        setFoxLive(true);
+        setFoxLoading(false);
+        emit(
+          `firefox: ${live.status} ${live.statusText} · ${live.bytes} B · ttfb ${live.ttfbMs}ms · live`,
+        );
+      } catch (err) {
+        if (!alive) return;
+        setFoxResp(ex);
+        setFoxLive(false);
+        setFoxLoading(false);
+        emit(
+          `firefox: proxy unreachable (${err instanceof Error ? err.message : "error"}) — cached render`,
+        );
+      }
+    })();
+
     return () => {
       alive = false;
-      clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foxTab, foxWin, foxReload]);
+
 
   function openIcon(label: string) {
     const icon = DESKTOP_ICONS.find((i) => i.label === label);
@@ -943,14 +992,26 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                   </div>
                   {/* viewport */}
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] max-h-[52%]">
-                    <div className="p-3 leading-5 text-[#c8d6e5] overflow-y-auto">
+                    <div className="p-0 leading-5 text-[#c8d6e5] overflow-y-auto min-h-[220px]">
                       {foxLoading || !foxResp ? (
-                        <p className="text-[#8fa8c0]">Connecting to {normalizeUrl(foxTab)}…</p>
+                        <p className="p-3 text-[#8fa8c0]">Connecting to {normalizeUrl(foxTab)}…</p>
+                      ) : foxHtml ? (
+                        <iframe
+                          title={foxResp.title}
+                          srcDoc={foxHtml}
+                          sandbox=""
+                          className="w-full h-[320px] bg-white"
+                        />
                       ) : (
-                        <>
+                        <div className="p-3">
                           <p className="text-[#7ec8ff] text-[11px] font-semibold">{foxResp.heading}</p>
-                          {foxResp.lines.map((l) => (
-                            <p key={l} className="text-[#8fa8c0]">{l}</p>
+                          {!foxLive && (
+                            <p className="text-amber text-[9px]">
+                              offline render — guest NAT proxy unreachable
+                            </p>
+                          )}
+                          {foxResp.lines.map((l, i) => (
+                            <p key={`${i}-${l.slice(0, 12)}`} className="text-[#8fa8c0]">{l}</p>
                           ))}
                           {foxResp.links.map((lk) => (
                             <button
@@ -962,8 +1023,9 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                               {lk.label}
                             </button>
                           ))}
-                        </>
+                        </div>
                       )}
+
                     </div>
                     {httpView && (
                       <div className="md:w-56 border-t md:border-t-0 md:border-l border-[#3d5a7a]/60 p-2 overflow-y-auto text-[9px] leading-4">
