@@ -492,9 +492,11 @@ function Console() {
         <RemoteDesktop
           guest={rdpGuest}
           hostIp={vms.find((v) => v.id === rdpGuest.hostId)?.ip ?? selected.ip}
+          onBusEvent={(line) => push(makeLog("net", line))}
           onClose={() => setRdpGuestId(null)}
         />
       )}
+
     </div>
   );
 }
