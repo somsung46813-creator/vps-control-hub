@@ -445,6 +445,13 @@ function Console() {
       </main>
 
       <DeployDrawer open={deployOpen} onClose={() => setDeployOpen(false)} onDeploy={deploy} />
+      {sessionGuest && (
+        <GuestConsole
+          guest={sessionGuest}
+          hostIp={vms.find((v) => v.id === sessionGuest.hostId)?.ip ?? selected.ip}
+          onClose={() => setSessionGuestId(null)}
+        />
+      )}
     </div>
   );
 }
