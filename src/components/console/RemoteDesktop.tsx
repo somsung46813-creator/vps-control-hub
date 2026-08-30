@@ -9,7 +9,17 @@ import {
   type IoDevice,
 } from "@/lib/iobus";
 
+type CLIP_MODE = "bidirectional" | "host-to-guest" | "guest-to-host" | "disabled";
+
+const CLIP_MODES: Array<{ id: CLIP_MODE; label: string }> = [
+  { id: "bidirectional", label: "bidi" },
+  { id: "host-to-guest", label: "host→guest" },
+  { id: "guest-to-host", label: "guest→host" },
+  { id: "disabled", label: "off" },
+];
+
 type Props = {
+
   guest: Guest;
   hostIp: string;
   onClose: () => void;
@@ -77,7 +87,11 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
   const dragMovedRef = useRef(false);
   const [busLog, setBusLog] = useState<string[]>([]);
   const [grabbed, setGrabbed] = useState(true);
+  const [clipMode, setClipMode] = useState<CLIP_MODE>("bidirectional");
+  const [clipGuest, setClipGuest] = useState("");
+  const [clipXfer, setClipXfer] = useState<string | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
+
 
   const mouse = devices.find((d) => d.cls === "mouse")!;
   const keyboard = devices.find((d) => d.cls === "keyboard")!;
@@ -130,6 +144,48 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [done, keyboardLive]);
+
+  // cliprdr — client clipboard streamed into the guest on paste (Ctrl/Cmd+V)
+  const hostToGuest = clipMode === "bidirectional" || clipMode === "host-to-guest";
+  const guestToHost = clipMode === "bidirectional" || clipMode === "guest-to-host";
+
+  useEffect(() => {
+    if (!done || !grabbed || !hostToGuest) return;
+    function onPaste(e: ClipboardEvent) {
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (!text) return;
+      e.preventDefault();
+      const flat = text.replace(/\s+/g, " ").trim();
+      setTyped((t) => (t + flat).slice(-48));
+      setClipGuest(flat);
+      setClipXfer(`host → guest · ${new Blob([text]).size} B · CF_UNICODETEXT`);
+      emit(
+        `cliprdr: format data response · ${new Blob([text]).size} bytes CF_UNICODETEXT → ${guest.name}`,
+      );
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [done, grabbed, hostToGuest, emit, guest.name]);
+
+  async function copyFromGuest() {
+    const payload = typed || clipGuest;
+    if (!payload || !guestToHost) return;
+    try {
+      await navigator.clipboard.writeText(payload);
+      setClipXfer(`guest → host · ${new Blob([payload]).size} B · UTF8_STRING`);
+      emit(`cliprdr: format list · UTF8_STRING ${new Blob([payload]).size} bytes → host clipboard`);
+    } catch {
+      setClipXfer("guest → host · blocked by browser permission");
+      emit("cliprdr: host clipboard write denied — permission");
+    }
+  }
+
+  function cycleClipMode() {
+    const i = CLIP_MODES.findIndex((m) => m.id === clipMode);
+    const next = CLIP_MODES[(i + 1) % CLIP_MODES.length]!;
+    setClipMode(next.id);
+    emit(`cliprdr: channel mode ${next.id}`);
+  }
 
   function toggleGrab() {
     if (grabbed) {
@@ -549,7 +605,40 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
               </button>
             ))}
           </div>
+          {/* cliprdr — clipboard channel */}
+          <div className="px-3 py-2 border-t border-railedge">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px]">📋</span>
+              <span className="text-[10px] text-ink flex-1">Clipboard channel</span>
+              <button
+                type="button"
+                onClick={cycleClipMode}
+                className={`text-[9px] font-mono px-1.5 py-0.5 rounded ring-1 transition ${
+                  clipMode === "disabled"
+                    ? "text-dim ring-railedge hover:text-ink"
+                    : "text-neon ring-neon/40 bg-neon/10 hover:bg-neon/20"
+                }`}
+              >
+                {CLIP_MODES.find((m) => m.id === clipMode)?.label}
+              </button>
+            </div>
+            <p className="text-[9px] font-mono text-dim mt-1 truncate">
+              svc cliprdr · virtual channel 0x03 · CF_UNICODETEXT/UTF8_STRING
+            </p>
+            <p className="text-[9px] font-mono text-dim/70 mt-0.5 truncate">
+              {clipXfer ?? (hostToGuest ? "idle — press Ctrl+V to stream host clipboard" : "host→guest stream off")}
+            </p>
+            <button
+              type="button"
+              onClick={copyFromGuest}
+              disabled={!guestToHost || !(typed || clipGuest)}
+              className="mt-1.5 w-full text-[9px] font-mono px-2 py-1 rounded ring-1 ring-railedge text-ink hover:bg-panel/70 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              copy guest selection → host clipboard
+            </button>
+          </div>
           <div className="px-3 py-2 border-t border-railedge min-h-[3.5rem]">
+
             {busLog.length === 0 ? (
               <p className="text-[9px] font-mono text-dim/60">udev quiet · no bus events</p>
             ) : (
