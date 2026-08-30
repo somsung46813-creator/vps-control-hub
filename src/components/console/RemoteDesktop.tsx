@@ -619,13 +619,37 @@ export function RemoteDesktop({ guest, hostIp, onClose, onBusEvent }: Props) {
                   <span className="h-1.5 w-1.5 rounded-full bg-mint/70" />
                   <span className="ml-1.5">ubuntu@{guest.name}: ~</span>
                 </div>
-                <div className="p-2 leading-4 text-[#a8e6a3]">
-                  <p>ubuntu@{guest.name}:~$ xfce4-session-logout --version</p>
-                  <p className="text-[#c8d6e5]">xfce4-session 4.18.3 (Xfce 4.18)</p>
+                <div
+                  className="p-2 leading-4 text-[#a8e6a3]"
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const r = frameRef.current?.getBoundingClientRect();
+                    if (!r) return;
+                    setMenu({
+                      x: ((e.clientX - r.left) / r.width) * 100,
+                      y: ((e.clientY - r.top) / r.height) * 100,
+                      label: null,
+                    });
+                  }}
+                >
+                  {termLines.length === 0 ? (
+                    <>
+                      <p>ubuntu@{guest.name}:~$ xfce4-session-logout --version</p>
+                      <p className="text-[#c8d6e5]">xfce4-session 4.18.3 (Xfce 4.18)</p>
+                    </>
+                  ) : (
+                    termLines.map((l, i) => (
+                      <p key={`${l}-${i}`} className={l.includes("$ ") ? "" : "text-[#c8d6e5]"}>
+                        {l}
+                      </p>
+                    ))
+                  )}
                   <p>
                     ubuntu@{guest.name}:~$ {typed}
                     <span className="animate-pulse">▌</span>
                   </p>
+
                   {!keyboard.attached ? (
                     <p className="text-amber">input: no keyboard on bus — attach ⌨ to type</p>
                   ) : !grabbed ? (
