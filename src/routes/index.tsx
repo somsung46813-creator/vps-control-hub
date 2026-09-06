@@ -32,6 +32,8 @@ import {
   type ProvisionPlan,
 } from "@/lib/interpreter";
 import { BuildPlanPanel } from "@/components/console/BuildPlanPanel";
+import { BoaPipeline } from "@/components/console/BoaPipeline";
+import { createBoa, type InfraRequest, type WorkflowRun } from "@/lib/boa";
 
 
 
@@ -61,17 +63,17 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Vantablade — VPS & PaaS Fleet Command Console" },
+      { title: "Vantablade — Infrastructure Fleet Command Console" },
       {
         name: "description",
         content:
-          "Operate platform-as-a-service host virtual machines: live CPU, memory and network telemetry, instance lifecycle control, snapshots and a streaming agent log.",
+          "Infrastructure-as-a-service console for host virtual machines: a BOA CPU workflow pipeline drives deploys, live CPU, memory and network telemetry, lifecycle control and signed guest provisioning.",
       },
-      { property: "og:title", content: "Vantablade — VPS & PaaS Fleet Command Console" },
+      { property: "og:title", content: "Vantablade — Infrastructure Fleet Command Console" },
       {
         property: "og:description",
         content:
-          "A dark instrument-panel console for deploying, monitoring and maintaining virtual private servers across regions.",
+          "A dark instrument-panel console for deploying infrastructure through the BOA pipeline: View, Data, Grid, Controller, Secret, Session, Sequence, Model, Packet, Frame, Medium.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -96,6 +98,9 @@ function Console() {
   const [command, setCommand] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
   const [guestBrowsers, setGuestBrowsers] = useState<Record<string, BrowserId[]>>({});
+  const [boaRuns, setBoaRuns] = useState<WorkflowRun[]>([]);
+  const [boaStage, setBoaStage] = useState<string | null>(null);
+  const boa = useMemo(() => createBoa(), []);
 
   const [files, setFiles] = useState<HostFile[]>(() => [
     ...seedFiles("vm-1"),
@@ -141,6 +146,26 @@ function Console() {
   const regions = useMemo(() => new Set(vms.map((v) => v.region)).size, [vms]);
 
   const push = (line: LogLine) => setLogs((prev) => [...prev, line].slice(-9));
+
+  /**
+   * Run an infra request through the BOA CPU workflow
+   * (View→Data→Grid→…→Medium). Stages light up live in the pipeline
+   * panel and mirror into the agent log.
+   */
+  function runInfraPipeline(req: InfraRequest): WorkflowRun {
+    const run = boa.execute(req);
+    setBoaRuns((prev) => [run, ...prev].slice(0, 6));
+    run.results.forEach((r, i) => {
+      setTimeout(() => {
+        setBoaStage(r.stage);
+        push(makeLog("net", `boa ${run.context.requestId} · ${r.stage.toLowerCase()} → ${r.detail}`));
+        if (i === run.results.length - 1) {
+          setTimeout(() => setBoaStage(null), 700);
+        }
+      }, i * 260);
+    });
+    return run;
+  }
 
   function runAction(id: string, action: "start" | "stop" | "reboot" | "snapshot") {
     const vm = vms.find((v) => v.id === id);
@@ -191,6 +216,14 @@ function Console() {
 
   function deploy(spec: DeploySpec) {
     const plan = PLANS[spec.planIndex]!;
+    runInfraPipeline({
+      kind: "deploy-host",
+      hostname: spec.hostname,
+      region: spec.region,
+      planLabel: plan.label,
+      browsers: spec.browsers,
+      hypervisorPkg: spec.installHypervisor ? (hypervisorDeb?.name ?? null) : null,
+    });
     idSeq += 1;
     const id = `vm-${idSeq}`;
     const octet = 20 + (idSeq % 200);
@@ -485,6 +518,15 @@ function Console() {
     );
     guest.autostart = plan.autostart;
     const signed = planWithSignature(plan, src, guest.signature);
+    runInfraPipeline({
+      kind: "provision-guest",
+      hostname: selected.hostname,
+      guestName: guest.name,
+      osType: tpl.osType,
+      browsers: plan.browsers,
+      signature: guest.signature,
+      hypervisorPkg: src.pkg,
+    });
     setGuests((prev) => [guest, ...prev]);
     setGuestBrowsers((prev) => ({ ...prev, [guest.id]: plan.browsers }));
     runPlanSteps(signed, guest.id, tpl.diskGb);
@@ -587,6 +629,15 @@ function Console() {
   /** Re-run the whole plan against the existing guest (host layer included). */
   function rebuildGuest(guest: Guest) {
     const plan = guestPlans[guest.id] ?? planForGuest(guest, interpSrc, guestBrowsers[guest.id] ?? []);
+    runInfraPipeline({
+      kind: "rebuild-guest",
+      hostname: vms.find((v) => v.id === guest.hostId)?.hostname ?? selected.hostname,
+      guestName: guest.name,
+      osType: guest.osType,
+      browsers: guestBrowsers[guest.id] ?? [],
+      signature: guest.signature ?? plan.digest,
+      hypervisorPkg: interpSrc.pkg,
+    });
     push(makeLog("net", `spectrum interpreter · rebuilding ${guest.name} · key ${plan.digest}`));
     setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, status: "installing" } : g)));
     runPlanSteps(plan, guest.id, guest.diskGb);
@@ -693,9 +744,9 @@ function Console() {
       <main className="console-main min-w-0">
         <header className="flex flex-wrap items-center justify-between gap-3 px-[var(--console-pad-x)] py-4 border-b border-railedge">
           <div>
-            <h1 className="font-display font-semibold text-2xl leading-tight">Fleet overview</h1>
+            <h1 className="font-display font-semibold text-2xl leading-tight">Infrastructure overview</h1>
             <p className="text-xs text-dim mt-1">
-              {vms.length} instances · {regions} regions · region cluster {selected.region}
+              {vms.length} instances · {regions} regions · BOA pipeline {boaRuns.length > 0 ? "engaged" : "idle"} · cluster {selected.region}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -774,6 +825,7 @@ function Console() {
 
           <div className="console-stack">
             <DetailPanel vm={selected} onAction={runAction} />
+            <BoaPipeline runs={boaRuns} activeStage={boaStage} />
             <Interpreter
               onEvent={(line) => push(makeLog("ok", line))}
               hypervisor={hypervisor}
