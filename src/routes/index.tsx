@@ -744,9 +744,9 @@ function Console() {
       <main className="console-main min-w-0">
         <header className="flex flex-wrap items-center justify-between gap-3 px-[var(--console-pad-x)] py-4 border-b border-railedge">
           <div>
-            <h1 className="font-display font-semibold text-2xl leading-tight">Fleet overview</h1>
+            <h1 className="font-display font-semibold text-2xl leading-tight">Infrastructure overview</h1>
             <p className="text-xs text-dim mt-1">
-              {vms.length} instances · {regions} regions · region cluster {selected.region}
+              {vms.length} instances · {regions} regions · BOA pipeline {boaRuns.length > 0 ? "engaged" : "idle"} · cluster {selected.region}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -825,6 +825,7 @@ function Console() {
 
           <div className="console-stack">
             <DetailPanel vm={selected} onAction={runAction} />
+            <BoaPipeline runs={boaRuns} activeStage={boaStage} />
             <Interpreter
               onEvent={(line) => push(makeLog("ok", line))}
               hypervisor={hypervisor}
