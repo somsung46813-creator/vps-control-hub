@@ -216,6 +216,14 @@ function Console() {
 
   function deploy(spec: DeploySpec) {
     const plan = PLANS[spec.planIndex]!;
+    runInfraPipeline({
+      kind: "deploy-host",
+      hostname: spec.hostname,
+      region: spec.region,
+      planLabel: plan.label,
+      browsers: spec.browsers,
+      hypervisorPkg: spec.installHypervisor ? (hypervisorDeb?.name ?? null) : null,
+    });
     idSeq += 1;
     const id = `vm-${idSeq}`;
     const octet = 20 + (idSeq % 200);
@@ -510,6 +518,15 @@ function Console() {
     );
     guest.autostart = plan.autostart;
     const signed = planWithSignature(plan, src, guest.signature);
+    runInfraPipeline({
+      kind: "provision-guest",
+      hostname: selected.hostname,
+      guestName: guest.name,
+      osType: tpl.osType,
+      browsers: plan.browsers,
+      signature: guest.signature,
+      hypervisorPkg: src.pkg,
+    });
     setGuests((prev) => [guest, ...prev]);
     setGuestBrowsers((prev) => ({ ...prev, [guest.id]: plan.browsers }));
     runPlanSteps(signed, guest.id, tpl.diskGb);
@@ -612,6 +629,15 @@ function Console() {
   /** Re-run the whole plan against the existing guest (host layer included). */
   function rebuildGuest(guest: Guest) {
     const plan = guestPlans[guest.id] ?? planForGuest(guest, interpSrc, guestBrowsers[guest.id] ?? []);
+    runInfraPipeline({
+      kind: "rebuild-guest",
+      hostname: vms.find((v) => v.id === guest.hostId)?.hostname ?? selected.hostname,
+      guestName: guest.name,
+      osType: guest.osType,
+      browsers: guestBrowsers[guest.id] ?? [],
+      signature: guest.signature ?? plan.digest,
+      hypervisorPkg: interpSrc.pkg,
+    });
     push(makeLog("net", `spectrum interpreter · rebuilding ${guest.name} · key ${plan.digest}`));
     setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, status: "installing" } : g)));
     runPlanSteps(plan, guest.id, guest.diskGb);
