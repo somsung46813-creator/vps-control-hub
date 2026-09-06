@@ -147,6 +147,26 @@ function Console() {
 
   const push = (line: LogLine) => setLogs((prev) => [...prev, line].slice(-9));
 
+  /**
+   * Run an infra request through the BOA CPU workflow
+   * (View→Data→Grid→…→Medium). Stages light up live in the pipeline
+   * panel and mirror into the agent log.
+   */
+  function runInfraPipeline(req: InfraRequest): WorkflowRun {
+    const run = boa.execute(req);
+    setBoaRuns((prev) => [run, ...prev].slice(0, 6));
+    run.results.forEach((r, i) => {
+      setTimeout(() => {
+        setBoaStage(r.stage);
+        push(makeLog("net", `boa ${run.context.requestId} · ${r.stage.toLowerCase()} → ${r.detail}`));
+        if (i === run.results.length - 1) {
+          setTimeout(() => setBoaStage(null), 700);
+        }
+      }, i * 260);
+    });
+    return run;
+  }
+
   function runAction(id: string, action: "start" | "stop" | "reboot" | "snapshot") {
     const vm = vms.find((v) => v.id === id);
     if (!vm) return;
