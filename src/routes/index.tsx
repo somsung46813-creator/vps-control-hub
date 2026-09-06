@@ -32,6 +32,8 @@ import {
   type ProvisionPlan,
 } from "@/lib/interpreter";
 import { BuildPlanPanel } from "@/components/console/BuildPlanPanel";
+import { BoaPipeline } from "@/components/console/BoaPipeline";
+import { createBoa, type InfraRequest, type WorkflowRun } from "@/lib/boa";
 
 
 
@@ -61,17 +63,17 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Vantablade — VPS & PaaS Fleet Command Console" },
+      { title: "Vantablade — Infrastructure Fleet Command Console" },
       {
         name: "description",
         content:
-          "Operate platform-as-a-service host virtual machines: live CPU, memory and network telemetry, instance lifecycle control, snapshots and a streaming agent log.",
+          "Infrastructure-as-a-service console for host virtual machines: a BOA CPU workflow pipeline drives deploys, live CPU, memory and network telemetry, lifecycle control and signed guest provisioning.",
       },
-      { property: "og:title", content: "Vantablade — VPS & PaaS Fleet Command Console" },
+      { property: "og:title", content: "Vantablade — Infrastructure Fleet Command Console" },
       {
         property: "og:description",
         content:
-          "A dark instrument-panel console for deploying, monitoring and maintaining virtual private servers across regions.",
+          "A dark instrument-panel console for deploying infrastructure through the BOA pipeline: View, Data, Grid, Controller, Secret, Session, Sequence, Model, Packet, Frame, Medium.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
