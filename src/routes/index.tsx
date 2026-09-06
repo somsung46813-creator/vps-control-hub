@@ -98,6 +98,9 @@ function Console() {
   const [command, setCommand] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
   const [guestBrowsers, setGuestBrowsers] = useState<Record<string, BrowserId[]>>({});
+  const [boaRuns, setBoaRuns] = useState<WorkflowRun[]>([]);
+  const [boaStage, setBoaStage] = useState<string | null>(null);
+  const boa = useMemo(() => createBoa(), []);
 
   const [files, setFiles] = useState<HostFile[]>(() => [
     ...seedFiles("vm-1"),
